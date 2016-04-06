@@ -14,22 +14,31 @@ moment = require 'moment'
 
 BablicSeo = (options) ->
   if options.default_cache?
-    setTimeout preload, 30000
+    console.log 'setting timeout'
+    setTimeout ->
+      console.log 'starting preloads'
+      preload()
+    , 1500
 
   preload = ->
     preloads = []
     for url in options.default_cache
       preloads.push ->
-        get_html url, (error) ->
+        get_html url, null, (error) ->
           if error?
             console.error "Bablic SDK Error: url #{url} failed preloading"
+            console.error error
+
     async.series preloads
     return
 
-  get_html = (url, cbk) ->
+  get_html = (url, html, cbk) ->
     ops =
       url: "http://dev.bablic.com/api/engine/seo?site=#{options.site_id}&url=#{url}"
       method: 'POST'
+      json: true
+      body:
+        html: html
     request ops, (error, response, body) ->
       if error?
         return cbk error
@@ -39,40 +48,82 @@ BablicSeo = (options) ->
         cbk null, body
       return
 
-  full_path_from_url = (url) -> OS.tmpdir()+'/'+ crypto.createHash('md5').update(url).digest('hex')
+  hash = (data) -> crypto.createHash('md5').update(data).digest('hex')
 
-  get_from_cache = (url) ->
-    file_path = full_path_from_url url
-    try
-      file_stats = fs.statSync(file_path)
-      last_modified = moment file_stats.mtime.getTime()
-      now = moment()
-      last_modified.add options.TTL, 'days'
-      if now.isBefore(last_modified)
-        return fs.readFileSync file_path
+  full_path_from_url = (url) -> OS.tmpdir()+'/'+ hash(url)
+
+  cache_valid = (file_stats) ->
+    last_modified = moment file_stats.mtime.getTime()
+    now = moment()
+    last_modified.add 30, 'minutes'
+    return now.isBefore(last_modified)
+
+  get_from_cache = (url, callback) ->
+    fs.stat full_path_from_url(url), (error, file_stats) ->
+      if error?
+        return callback {
+          errno: 1
+          msg: 'does not exist in cache'
+        }
+      fs.readFile file_path, (error, data) ->
+        if error?
+          error =
+            errno: 2
+            msg: 'error reading from FS'
+        else unless cache_valid(file_stats)
+          error = {
+            errno: 3
+            msg: 'cache not valid'
+          }
+        callback error, data
     return null
 
-  return (req, res, next) ->
+  ignorable = (req) ->
+    filename_tester = /\.(js|css|jpg|jpeg|png|mp3|avi|mpeg|bmp|wav|pdf|doc|xml|docx|xlsx|xls|json|kml|svg|eot|woff|woff2)/
+    return filename_tester.test req.url
+
+  is_bot = (req) ->
     google_tester = new RegExp /bot|crawler|baiduspider|80legs|mediapartners-google|adsbot-google/i
-    is_bot = google_tester.test req.headers['user-agent']
-    if is_bot
-      console.log 'found bot'
-      my_url = "http://#{req.headers.host}#{req.url}"
+    return google_tester.test req.headers['user-agent']
+
+  should_handle = (req, res) ->
+    #TODO: add content type check for text/html
+    return is_bot(req) and not ignorable(req)
+
+  return (req, res, next) ->
+    if should_handle(req, res)
+      my_url = "http://#{req.headers.host}#{encodeURIComponent(req.url)}"
       my_url = 'http://lemonberry.com/'
-      html = get_from_cache my_url
-      return res.send(html) if html?
-      get_html my_url, (error, data) ->
-        if error?
-          console.error 'Bablic SDK Error:', error
-          return next()
-        return res.send data
-      return
+      html = get_from_cache my_url, (error, data) ->
+        if data?
+          res.send(data)
+        return unless error?
+        res._send = res.send
+        res._end = res.end
+        html = ''
+        res.write = (new_html) -> html+= new_html
+        res.send = (new_html) -> html+= new_html
+        res.end = ->
+          res.end = res._end
+          get_html my_url, html, (error, data) ->
+            if error?
+              console.error 'Bablic SDK Error:', error
+              res._send html
+              return
+            return res._send data
+          return
+        return next()
     return next()
 
+#TODO:
+# 1. readfile, get_from_cache -DONE
+# 2. sending html in post - DONE
+# 3. deliver from cache if exist but if cache > 30m refresh it lazily.
+
 options =
-  site_id: '56e7e95e374c81ab110e4cb4'
+  site_id: '57027b479ea455021713e02c'
   TTL: 2
-  default_cache: ['/']
+  default_cache: ['http://lemonberry.com/']
 
 app.use BablicSeo(options)
 
@@ -81,6 +132,7 @@ app.use BablicSeo(options)
 app.get '/', (req, res) ->
   res.send 'No'
   console.log 'no'
+  res.end()
 
 app.listen 81
 
