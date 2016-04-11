@@ -24,17 +24,19 @@ BablicSeo = (options) ->
     preloads = []
     for url in options.default_cache
       preloads.push ->
-        get_html url, null, (error) ->
+        get_html url, null, (error, data) ->
           if error?
-            console.error "Bablic SDK Error: url #{url} failed preloading"
+            console.error "[Bablic SDK] Error: url #{url} failed preloading"
             console.error error
+          else
+            console.log "[Bablic SDK] - Preload #{url} complete, size: #{data.length}"
 
     async.series preloads
     return
 
   get_html = (url, html, cbk) ->
     ops =
-      url: "http://dev.bablic.com/api/engine/seo?site=#{options.site_id}&url=#{url}"
+      url: "http://www.bablic.com/api/engine/seo?site=#{options.site_id}&url=#{url}"
       method: 'POST'
       json: true
       body:
@@ -59,7 +61,8 @@ BablicSeo = (options) ->
     return now.isBefore(last_modified)
 
   get_from_cache = (url, callback) ->
-    fs.stat full_path_from_url(url), (error, file_stats) ->
+    file_path = full_path_from_url(url)
+    fs.stat file_path, (error, file_stats) ->
       if error?
         return callback {
           errno: 1
@@ -93,45 +96,52 @@ BablicSeo = (options) ->
   return (req, res, next) ->
     if should_handle(req, res)
       my_url = "http://#{req.headers.host}#{encodeURIComponent(req.url)}"
-      my_url = 'http://lemonberry.com/'
-      html = get_from_cache my_url, (error, data) ->
+      my_url = 'http://bablic.weebly.com/?locale=fr'
+      get_from_cache my_url, (error, data) ->
+        cache_only = false
         if data?
-          res.send(data)
-        return unless error?
-        res._send = res.send
+          console.log 'sending from cache->', data.toString().length
+          res.write(data)
+          res.end()
+          cache_only = true
+          return unless error?
         res._end = res.end
+        res._write = res.write
         html = ''
         res.write = (new_html) -> html+= new_html
-        res.send = (new_html) -> html+= new_html
         res.end = ->
-          res.end = res._end
           get_html my_url, html, (error, data) ->
+            return res._end() if cache_only
             if error?
-              console.error 'Bablic SDK Error:', error
-              res._send html
+              console.error '[Bablic SDK] Error:', error
+              res._write html
+              res._end()
               return
-            return res._send data
+            console.log 'sending from bablic->'
+            res._write data
+            res._end()
+            return
           return
         return next()
+      return next()
     return next()
 
 #TODO:
-# 1. readfile, get_from_cache -DONE
-# 2. sending html in post - DONE
-# 3. deliver from cache if exist but if cache > 30m refresh it lazily.
+# 1. zip/unzip the cache files?
 
+#</middleware>
 options =
-  site_id: '57027b479ea455021713e02c'
+  site_id: '5704e06335b0a72b75ca3e1c'
   TTL: 2
-  default_cache: ['http://lemonberry.com/']
+  default_cache: ['http://bablic.weebly.com/?locale=fr']
 
 app.use BablicSeo(options)
 
 #</middleware>
 
 app.get '/', (req, res) ->
-  res.send 'No'
-  console.log 'no'
+  res.write 'About'
+  console.log 'sent no'
   res.end()
 
 app.listen 81
