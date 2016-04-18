@@ -1,4 +1,4 @@
-# Bablic-Seo
+# Bablic-Node-SDK
 
 To install simply use NPM:
 ```sh
