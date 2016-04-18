@@ -7,11 +7,10 @@ moment = require 'moment'
 
 module.exports = (options) ->
   if options.default_cache?
-    console.log 'setting timeout'
     setTimeout ->
       console.log 'starting preloads'
       preload()
-    , 1500
+    , 15000
 
   preload = ->
     preloads = []
@@ -29,7 +28,7 @@ module.exports = (options) ->
 
   get_html = (url, html, cbk) ->
     ops =
-      url: "http://dev.bablic.com/api/engine/seo?site=#{options.site_id}&url=#{encodeURIComponent(url)}"
+      url: "https://www.bablic.com/api/engine/seo?site=#{options.site_id}&url=#{encodeURIComponent(url)}"
       method: 'POST'
       json: true
       body:
