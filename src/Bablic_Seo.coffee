@@ -14,17 +14,13 @@ module.exports = (options) ->
 
   preload = ->
     preloads = []
-    for url in options.default_cache
-      preloads.push ->
-        get_html url, null, (error, data) ->
-          if error? or data is undefined
-            console.error "[Bablic SDK] Error: url #{url} failed preloading"
-            console.error error
-          else
-            console.log "[Bablic SDK] - Preload #{url} complete, size: #{data.length}"
-
-    async.series preloads
-    return
+    async.eachSeries(options.default_cache, (url,cbk) ->
+      get_html url, null, (error, data) ->
+        if error? or data is undefined
+          console.error "[Bablic SDK] Error: url #{url} failed preloading", error
+        else
+          console.log "[Bablic SDK] - Preload #{url} complete, size: #{data.length}"
+        cbk()
 
   get_html = (url, html, cbk) ->
     ops =
