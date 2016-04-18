@@ -1,0 +1,8 @@
+node_modules/*
+dist/
+*.un~
+*.swp
+*.coffee.un~
+*.js~
+*.coffee~
+.idea

@@ -4,33 +4,48 @@ OS = require 'os'
 fs = require 'fs'
 async = require 'async'
 moment = require 'moment'
+debug = require 'debug'
+debug = debug 'bablic:seo'
+_ = require 'lodash'
 
 module.exports = (options) ->
+  options = _.defaults options,
+    use_cache:true
+    site_id:null
+    default_cache:null
+    test:false
+  unless options.site_id
+    throw new Error('Must use site id for middleware')
+
   if options.default_cache?
     setTimeout ->
-      console.log 'starting preloads'
+      debug 'starting preloads'
       preload()
     , 15000
 
   preload = ->
     async.eachSeries options.default_cache, (url, cbk) ->
+      debug 'check cache for ', url
       get_html url, null, (error, data) ->
         if error? or data is undefined
           console.error "[Bablic SDK] Error: url #{url} failed preloading", error
         else
-          console.log "[Bablic SDK] - Preload #{url} complete, size: #{data.length}"
+          debug "[Bablic SDK] - Preload #{url} complete, size: #{data.length}"
         cbk()
 
   get_html = (url, html, cbk) ->
+    debug 'getting from bablic', url, 'html:', html?
     ops =
       url: "https://www.bablic.com/api/engine/seo?site=#{options.site_id}&url=#{encodeURIComponent(url)}"
       method: 'POST'
-      json: true
-      body:
+      json:
         html: html
     request ops, (error, response, body) ->
       if error?
         return cbk error
+      unless body?
+        return cbk new Error('empty response')
+      debug 'received translated html', response.statusCode
       cbk null, body
       fs.writeFile full_path_from_url(url), body, (error) ->
         if error
@@ -47,6 +62,7 @@ module.exports = (options) ->
     return now.isBefore(last_modified)
 
   get_from_cache = (url, callback) ->
+    return callback() unless options.use_cache
     file_path = full_path_from_url(url)
     fs.stat file_path, (error, file_stats) ->
       if error?
@@ -72,58 +88,85 @@ module.exports = (options) ->
     return filename_tester.test req.url
 
   is_bot = (req) ->
-    google_tester = new RegExp /bot|crawler|baiduspider|80legs|mediapartners-google|adsbot-google/i
+    google_tester = new RegExp /bot|crawler|baiduspider|facebookexternalhit|Twitterbot|80legs|mediapartners-google|adsbot-google/i
     return google_tester.test req.headers['user-agent']
 
-  should_handle = (req, res) ->
+  should_handle = (req) ->
     return is_bot(req) and not ignorable(req)
 
   return (req, res, next) ->
-    if should_handle(req, res)
-      my_url = "http://#{req.headers.host}#{req.url}"
-      get_from_cache my_url, (error, data) ->
-        cache_only = false
-        if data?
-          res.write(data)
-          res.end()
-          cache_only = true
-          return unless error?
-        _end = res.end
-        _write = res.write
-        stream = new Buffer(0)
-        res.write = (chunk, encoding='utf8') ->
-          if typeof(chunk) isnt 'object'
-            chunk = new Buffer(chunk, encoding)
-          stream = Buffer.concat [stream, chunk], (stream.toString().length + chunk.toString().length)
+    unless should_handle req
+      debug 'ignored', req.url
+      return next()
+    my_url = "http://#{req.headers.host}#{req.url}"
+    get_from_cache my_url, (error, data) ->
+      cache_only = false
+      if data?
+        debug 'flushing from cache'
+        res.set('Content-Type','text/html; charset=utf-8');
+        res.write(data)
+        res.end()
+        cache_only = true
+        return unless error?
+      debug 'overriding response'
+      _end = res.end
+      _write = res.write
+      restore_override = () ->
+        return unless _write and _end
+        debug 'undo override'
+        res.write = _write
+        res.end = _end
+        _write = _end = null
+      head_checked = false
+      is_html = null
+      chunks = []
+      check_head = () ->
+        return if head_checked
+        is_html = false
+        if res.get('content-type') isnt undefined
+          is_html = (res.get('content-type').indexOf('text/html') > -1)
+        unless is_html
+          debug 'not html', res.get('content-type')
+          restore_override()
+        head_checked = true
 
-        res.end = (chunk, encoding='utf8') ->
-          if chunk? and encoding?
-            res.write chunk, encoding
-          is_html = false
-          if res.get('content-type') isnt undefined
-            is_html = (res.get('content-type').indexOf('text/html') < 0)
-          if is_html is false
-            res.write = _write
-            res.end = _end
-            return res.end(stream)
-          get_html my_url, stream.toString(), (error, data) ->
-            res.write = _write
-            res.end = _end
-            return res.end() if cache_only
-            if error?
-              console.error '[Bablic SDK] Error:', error
-              res.write stream.toString()
-              res.end()
-              return
-            res.write data
+      res.write = (chunk, encoding='utf8') ->
+        check_head()
+        unless is_html
+          return if cache_only
+          # if not html, restore original functionality
+          debug 'write original'
+          return res.write.apply res, arguments
+        if typeof(chunk) is 'object'
+          chunk = chunk.toString(encoding)
+        chunks.push chunk
+
+      res.end = (chunk, encoding='utf8') ->
+        check_head()
+        unless is_html
+          return if cache_only
+          # if not html, restore original functionality
+          debug 'flush original'
+          return res.end res, arguments
+
+        if chunk?
+          res.write chunk, encoding
+
+        original_html = chunks.join ''
+        get_html my_url, original_html, (error, data) ->
+          return if cache_only
+          restore_override()
+          if error?
+            console.error '[Bablic SDK] Error:', error
+            debug 'flushing original'
+            res.write original_html
             res.end()
             return
+          console.error 'flushing translated'
+          res.write data
+          res.end()
           return
-        return next()
-      return
-    return next()
+        return
+      return next()
 
-#TODO:
-# 1. zip/unzip the cache files?
-# 2. packaging
 
