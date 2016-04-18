@@ -2,12 +2,12 @@
 
 To install simply use NPM:
 ```sh
-$ npm install --save Bablic_Seo_SDK
+$ npm install --save bablic
 ```
 
 Config your app:
 ```sh
-BablicSeo = require('Bablic_Seo_SDK')
+bablic = require('bablic')
 
 options =
   site_id: '[your site id from Bablic]'
@@ -15,7 +15,7 @@ options =
     'http://some.site.url/'
   ]
 
-app.use BablicSeo(options)
+app.use bablic(options)
 ```
 
 And use!
