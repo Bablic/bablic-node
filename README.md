@@ -15,7 +15,7 @@ options =
     'http://some.site.url/'
   ]
 
-app.use bablic(options)
+app.use bablic.seo(options)
 ```
 
 And use!
