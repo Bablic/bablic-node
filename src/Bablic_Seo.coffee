@@ -111,11 +111,32 @@ module.exports = (options) ->
       debug 'overriding response'
       _end = res.end
       _write = res.write
+      headers = {}
+      if cache_only
+        _getHeader = res.getHeader
+        res.setHeader = (name, value) ->
+          headers[name.toLowerCase().trim()] = value
+        res.removeHeader = (name) ->
+          headers[name.toLowerCase().trim()] = null
+        res.writeHead = (status,_headers) ->
+          res.statusCode = status
+          if _headers and typeof(_headers) is 'object'
+            _.assign headers, _headers
+        res.getHeader = (name) ->
+          local = headers[name.toLowerCase().trim()]
+          if local
+            return local
+          if local is null
+            return
+          return _getHeader.call(res,name)
+
       restore_override = () ->
         return unless _write and _end
         debug 'undo override'
         res.write = _write
         res.end = _end
+        if cache_only
+          _getHeader = null
         _write = _end = null
       head_checked = false
       is_html = null
