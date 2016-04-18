@@ -32,11 +32,10 @@ module.exports = (options) ->
     request ops, (error, response, body) ->
       if error?
         return cbk error
+      cbk null, body
       fs.writeFile full_path_from_url(url), body, (error) ->
         if error
-          return cbk error
-        cbk null, body
-      return
+          console.error 'Error saving to cache', error
 
   hash = (data) -> crypto.createHash('md5').update(data).digest('hex')
 
