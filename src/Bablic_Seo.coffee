@@ -111,6 +111,12 @@ module.exports = (options) ->
       debug 'overriding response'
       _end = res.end
       _write = res.write
+      _writeHead = res.writeHead
+      res.writeHead = (status,_headers) ->
+        res.statusCode = status
+        if _headers
+          for key in _headers
+            res.setHeader key, _headers[key]
       headers = {}
       if cache_only
         _getHeader = res.getHeader
@@ -118,10 +124,6 @@ module.exports = (options) ->
           headers[name.toLowerCase().trim()] = value
         res.removeHeader = (name) ->
           headers[name.toLowerCase().trim()] = null
-        res.writeHead = (status,_headers) ->
-          res.statusCode = status
-          if _headers and typeof(_headers) is 'object'
-            _.assign headers, _headers
         res.getHeader = (name) ->
           local = headers[name.toLowerCase().trim()]
           if local
@@ -131,13 +133,14 @@ module.exports = (options) ->
           return _getHeader.call(res,name)
 
       restore_override = () ->
-        return unless _write and _end
+        return unless _write and _end and _writeHead
         debug 'undo override'
         res.write = _write
         res.end = _end
+        res.writeHead = _writeHead
         if cache_only
           _getHeader = null
-        _write = _end = null
+        _write = _end = _writeHead = null
       head_checked = false
       is_html = null
       chunks = []
@@ -183,7 +186,8 @@ module.exports = (options) ->
             res.write original_html
             res.end()
             return
-          console.error 'flushing translated'
+          debug 'flushing translated'
+          res.set 'Content-Length', Buffer.byteLength(data)
           res.write data
           res.end()
           return
