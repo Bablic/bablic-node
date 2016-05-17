@@ -7,7 +7,7 @@ $ npm install --save bablic
 
 Config your app:
 ```sh
-bablic = require('bablic');
+var bablic = require('bablic');
 
 app.use(bablic.seo({
   site_id: '[your site id from Bablic]',
