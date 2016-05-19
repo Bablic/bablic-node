@@ -17,6 +17,7 @@ module.exports = (options) ->
   unless options.site_id
     throw new Error('Must use site id for middleware')
 
+  alt_host = options.alt_host if options.alt_host?
   if options.default_cache?
     setTimeout ->
       debug 'starting preloads'
@@ -36,7 +37,7 @@ module.exports = (options) ->
   get_html = (url, html, cbk) ->
     debug 'getting from bablic', url, 'html:', html?
     ops =
-      url: "https://www.bablic.com/api/engine/seo?site=#{options.site_id}&url=#{encodeURIComponent(url)}"
+      url: "https://seo.bablic.com/api/engine/seo?site=#{options.site_id}&url=#{encodeURIComponent(url)}"
       method: 'POST'
       json:
         html: html
@@ -98,7 +99,9 @@ module.exports = (options) ->
     unless should_handle req
       debug 'ignored', req.url
       return next()
+
     my_url = "http://#{req.headers.host}#{req.url}"
+    my_url = "http://#{alt_host}#{req.url}" if alt_host?
     get_from_cache my_url, (error, data) ->
       cache_only = false
       if data?
@@ -108,10 +111,12 @@ module.exports = (options) ->
         res.end()
         cache_only = true
         return unless error?
+
       debug 'overriding response'
       _end = res.end
       _write = res.write
       headers = {}
+
       if cache_only
         _getHeader = res.getHeader
         res.setHeader = (name, value) ->
@@ -138,9 +143,11 @@ module.exports = (options) ->
         if cache_only
           _getHeader = null
         _write = _end = null
+
       head_checked = false
       is_html = null
       chunks = []
+
       check_head = () ->
         return if head_checked
         is_html = false
@@ -190,4 +197,6 @@ module.exports = (options) ->
         return
       return next()
 
+#TODO:
+# 1. zip/unzip the cache files?
 

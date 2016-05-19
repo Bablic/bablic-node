@@ -7,7 +7,11 @@
     "url": "git://github.com/Bablic/bablic-node.git"
   },
   "keywords": [
-    "bablic","seo","localization","translation","i18n"
+    "bablic",
+    "seo",
+    "localization",
+    "translation",
+    "i18n"
   ],
   "author": {
     "name": "Erez Hochman"
@@ -17,12 +21,13 @@
   },
   "dependencies": {
     "async": "^1.5.0",
-	"lodash":"^3.5.0",
+    "lodash": "^3.5.0",
     "moment": "^2.10.6",
     "request": "^2.71.0"
   },
   "devDependencies": {
-    "coffee-script": "~1.0.0"
+    "coffee-script": "~1.0.0",
+    "debug": "^2.2.0"
   },
   "scripts": {
     "prepublish": "coffee --bare --compile --output dist/ src/"
