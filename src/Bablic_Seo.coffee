@@ -37,7 +37,7 @@ module.exports = (options) ->
   get_html = (url, html, cbk) ->
     debug 'getting from bablic', url, 'html:', html?
     ops =
-      url: "https://seo.bablic.com/api/engine/seo?site=#{options.site_id}&url=#{encodeURIComponent(url)}"
+      url: "http://seo.bablic.com/api/engine/seo?site=#{options.site_id}&url=#{encodeURIComponent(url)}"
       method: 'POST'
       json:
         html: html
