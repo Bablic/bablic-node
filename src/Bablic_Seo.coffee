@@ -44,6 +44,8 @@ module.exports = (options) ->
     request ops, (error, response, body) ->
       if error?
         return cbk error
+      if response.statusCode < 200 or response.statusCode >= 300
+        return cbk response.statusCode
       unless body?
         return cbk new Error('empty response')
       debug 'received translated html', response.statusCode
@@ -157,6 +159,10 @@ module.exports = (options) ->
           is_html = (res.get('content-type').indexOf('text/html') > -1)
         unless is_html
           debug 'not html', res.get('content-type')
+          restore_override()
+        if res.statusCode < 200 or res.statusCode >= 300
+          debug 'error response', res.statusCode
+          is_html = false
           restore_override()
         head_checked = true
 
