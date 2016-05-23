@@ -183,7 +183,7 @@ module.exports = (options) ->
           return if cache_only
           # if not html, restore original functionality
           debug 'flush original'
-          return res.end res, arguments
+          return res.end.apply res, arguments
 
         if chunk?
           res.write chunk, encoding
