@@ -1,24 +1,29 @@
-request = require 'request'
-crypto = require 'crypto'
-OS = require 'os'
-fs = require 'fs'
+_ = require 'lodash'
 async = require 'async'
+crypto = require 'crypto'
+cookie = require 'cookie'
+fs = require 'fs'
 moment = require 'moment'
+OS = require 'os'
+request = require 'request'
 debug = require 'debug'
 debug = debug 'bablic:seo'
-_ = require 'lodash'
 
 module.exports = (options) ->
   options = _.defaults options,
-    use_cache:true
-    site_id:null
-    default_cache:null
-    test:false
-  unless options.site_id
-    throw new Error('Must use site id for middleware')
+    site_id: null
+    root_url: null
+    seo:
+      use_cache: true
+      default_cache: null
+    test: false
+
+  console.log options.site_id, options.root_url
+  unless (options.site_id and options.root_url)
+    throw new Error('Middleware requires root_url and site_id')
 
   alt_host = options.alt_host if options.alt_host?
-  if options.default_cache?
+  if options.seo.default_cache?
     setTimeout ->
       debug 'starting preloads'
       preload()
@@ -56,7 +61,105 @@ module.exports = (options) ->
 
   hash = (data) -> crypto.createHash('md5').update(data).digest('hex')
 
-  full_path_from_url = (url) -> OS.tmpdir()+'/'+ hash(url)
+  full_path_from_url = (url) -> "#{OS.tmpdir()}/#{hash(url)}"
+
+  snippet_url = -> "#{OS.tmpdir()}/snippet"
+
+  get_data = (cb) ->
+    ops =
+      url: "http://dev.bablic.com/api/v1/site/#{options.site_id}"
+      method: 'GET'
+    request ops, (error, response, body) ->
+      if error?
+        return cb error
+      unless body?
+        return cb new Error('empty response')
+      try
+        data = JSON.parse body
+        console.log 'data:', data
+        save_data(body)
+        cb null, data
+      catch e
+        debug
+
+  detect_locale_from_header = (req) ->
+    langs = req.headers['accept-language'].split(',') if req.headers['accept-language']
+    if langs?.length > 0
+      return langs[0].replace('-','_')
+    return false
+
+  detect_locale_from_cookie = (req) ->
+    return false unless req.headers['cookie']
+    return false unless @meta['localeKeys']
+    if req.cookies?
+      bablicookie = req.cookies['bab_locale']
+    else
+      cookies = cookie.parse(req.headers['cookie'])
+      bablicookie = cookies['bab_locale']
+    return false unless bablicookie
+    match_index = @meta['localeKeys'].indexOf bablicookie
+    if match_index < 0
+      match_index  = @meta['localeKeys'].indexOf bablicookie.substr(0, 2)
+    unless match_index < 0
+      return @meta['localeKeys'][match_index]
+    return false
+
+  get_current_url = (req) -> "#{req.protocol}://#{req.hostname}/#{req.path}"
+
+  get_locale = (req) ->
+    auto = @meta['autoDetect']
+    default_locale = @meta['default']
+    custom_urls = @meta['customUrls']
+    locale_keys = @meta['localeKeys']
+    locale_detection = @meta['localeDetection']
+    detected = ''
+    if (auto and locale_keys)
+      detected_lang = detect_locale_from_header req
+      if detected_lang
+        match_index = locale_keys.indexOf detected_lang
+        if match_index < 0
+          match_index = locale_keys.indexOf detected_lang.substr(0, 2)
+        unless match_index < 0
+          detected = locale_keys[match_index]
+
+    from_cookie = detect_locale_from_cookie req
+    if options.sub_dir
+      locale_detection = 'subdir'
+    switch locale_detection
+      when 'querystring'
+        return req.query['locale'] or from_cookie or detected or default_locale
+
+      when 'subdir'
+        match = /^(\/(\w\w(_\w\w)?))(?:\/|$)/.exec(req.path)
+        return match[2] if match
+        return detected or default_locale
+
+      when 'custom'
+        create_domain_rule = (str) ->
+          return RegExp((str+'').replace(/([.?+^$[\]\\(){}|-])/g, "\\$1").replace(/\*/g,'.*'),'i')
+
+        for key, value of custom_urls
+          if create_domain_rule(value).test(get_current_url())
+            return key
+        return default_locale
+
+      else
+        return from_cookie
+    return
+
+  save_data = (bablic_data) ->
+    fs.writeFile snippet_url(), bablic_data, (error) ->
+      if error
+        console.error 'Error saving snippet to cache', error
+
+  load_data = (cb) ->
+    fs.readFile snippet_url(), (error, data) ->
+      try
+        object = JSON.parse(data)
+        cb null, object
+      catch e
+        cb e
+      get_data cb
 
   cache_valid = (file_stats) ->
     last_modified = moment file_stats.mtime.getTime()
@@ -97,10 +200,34 @@ module.exports = (options) ->
   should_handle = (req) ->
     return is_bot(req) and not ignorable(req)
 
+  load_data (error, data) =>
+    if error
+      debug "Error:", error
+      console.log error
+      return
+    @snippet = data.snippet
+    @meta = data.meta
+    console.log 'saved to memory: ', data
+    return
+
+
   return (req, res, next) ->
     unless should_handle req
       debug 'ignored', req.url
       return next()
+    locale = get_locale(req)
+    req.bablic =
+      locale: locale
+
+    res.bablic =
+      locale: locale
+      snippet: @snippet
+      snippetBottom: ''
+      snippetTop: ''
+
+    if @meta.original isnt locale
+      req.bablic.snippetBottom = @snippet
+      req.bablic.snippetTop = @snippet
 
     my_url = "http://#{req.headers.host}#{req.url}"
     my_url = "http://#{alt_host}#{req.url}" if alt_host?

@@ -4,8 +4,11 @@ app = express()
 BablicSeo = require('./Bablic_Seo')
 options =
   site_id: '56fa51a1fe353b8c4d8d4291'
-  default_cache: [ 'http://bablic.weebly.com/fr' ]
-  alt_host: 'bablic.weebly.com'
+  root_url: 'http://bablic.weebly.com/fr'
+  sub_dir: true
+  seo:
+    default_cache: [ 'http://bablic.weebly.com/fr' ]
+    alt_host: 'bablic.weebly.com'
 
 app.use BablicSeo(options)
 app.get '/', (req, res) ->
