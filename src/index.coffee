@@ -1,2 +1,2 @@
 
-exports.seo = require './Bablic_Seo'
+exports = require './Bablic_Seo'
