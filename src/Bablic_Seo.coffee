@@ -210,11 +210,35 @@ module.exports = (options) ->
     console.log 'saved to memory: ', data
     return
 
+  handle_bablic_callback = (req, res) =>
+    if req.body.event is 'snippet'
+      @snippet = req.body.data.snippet
+      @meta = req.body.data.meta
+    res.send 'OK'
+    return
+
+  register_callback = ->
+    ops =
+      url: "http://dev.bablic.com/api/v1/site/#{options.site_id}"
+      method: 'PUT'
+      json:
+        callback: "#{req.protocol}://#{req.hostname}/_bablicCallback"
+    request ops, (error, response, body) ->
+      if error?
+        debug "setting callback failed"
+      return
+
+  register_callback()
 
   return (req, res, next) ->
     unless should_handle req
       debug 'ignored', req.url
       return next()
+
+    if req.path is '/_bablicCallback' and req.method is 'POST'
+      debug 'Redirecting to Bablic callback'
+      return handle_bablic_callback req, res
+
     locale = get_locale(req)
     req.bablic =
       locale: locale
