@@ -217,12 +217,12 @@ module.exports = (options) ->
     res.send 'OK'
     return
 
-  register_callback = ->
+  register_callback = (req) ->
     ops =
       url: "http://dev.bablic.com/api/v1/site/#{options.site_id}"
       method: 'PUT'
       json:
-        callback: "#{req.protocol}://#{req.hostname}/_bablicCallback"
+        callback: "#{options.root_url}/_bablicCallback"
     request ops, (error, response, body) ->
       if error?
         debug "setting callback failed"
@@ -250,8 +250,8 @@ module.exports = (options) ->
       snippetTop: ''
 
     if @meta.original isnt locale
-      req.bablic.snippetBottom = @snippet
-      req.bablic.snippetTop = @snippet
+      res.bablic.snippetBottom = @snippet
+      res.bablic.snippetTop = @snippet
 
     my_url = "http://#{req.headers.host}#{req.url}"
     my_url = "http://#{alt_host}#{req.url}" if alt_host?
