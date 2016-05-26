@@ -67,7 +67,7 @@ module.exports = (options) ->
 
   get_data = (cb) ->
     ops =
-      url: "http://dev.bablic.com/api/v1/site/#{options.site_id}"
+      url: "https://www.bablic.com/api/v1/site/#{options.site_id}"
       method: 'GET'
     request ops, (error, response, body) ->
       if error?
@@ -219,7 +219,7 @@ module.exports = (options) ->
 
   register_callback = (req) ->
     ops =
-      url: "http://dev.bablic.com/api/v1/site/#{options.site_id}"
+      url: "http://www.bablic.com/api/v1/site/#{options.site_id}"
       method: 'PUT'
       json:
         callback: "#{options.root_url}/_bablicCallback"
