@@ -13,7 +13,7 @@ options =
   root_url: 'http://[root url of your site]'
   sub_dir: true // <- if you want to use sub_dir
   seo:
-    default_cache: [ 'http:/[url of smthing you know need caching' ]
+    default_cache: [ 'http:/[url of smthing you know need caching]'
     alt_host: '[alternative host, if you wish to supply one]'
 
 app.use bablic(options)
