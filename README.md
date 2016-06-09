@@ -34,7 +34,7 @@ In your layout template file you can add the snippet:
       <%- bablic.snippetTop %>
    </head>
    <body>
-      <%- body -%>
+      <%- body %>
       <%- bablic.snippetBottom %>
     </body>
 </html>
