@@ -17,5 +17,27 @@ var options = {
   }
 };
 app.use(bablic(options));
+
+app.get('/',function(req,res) { 
+   console.log(req.bablic.locale);
+   res.render('index.ejs',{});
+});
+
+```
+
+In your layout template file you can add the snippet:
+
+```
+
+<html>
+   <head>
+      <%- bablic.snippetTop %>
+   </head>
+   <body>
+      <%- body -%>
+      <%- bablic.snippetBottom %>
+    </body>
+</html>
+
 ```
 And use!
