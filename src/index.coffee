@@ -1,2 +1,2 @@
 
-exports = require './Bablic_Seo'
+exports = require './sdk'
