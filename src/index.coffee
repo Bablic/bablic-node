@@ -1,2 +1,2 @@
 
-exports = require './sdk'
+module.exports = require './sdk'

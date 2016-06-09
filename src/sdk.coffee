@@ -200,7 +200,7 @@ module.exports = (options) ->
       locale_detection = 'querystring';
 
     switch locale_detection
-      when 'custom':
+      when 'custom'
         custom_url = @meta['customUrls'][locale]
         if custom_url
           protocol = protocol or 'http://'
