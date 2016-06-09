@@ -169,9 +169,8 @@ module.exports = (options) ->
       return handle_bablic_callback req, res
 
     locale = get_locale(req)
-    req.locals = {} unless req.locals?
 
-    req.locals.bablic =
+    req.bablic =
       locale: locale
 
     res.locals.bablic =
