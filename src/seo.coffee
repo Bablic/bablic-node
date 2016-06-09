@@ -9,7 +9,7 @@ request = require 'request'
 debug = require 'debug'
 debug = debug 'bablic:seo'
 
-module.exports = (options = {use_cache: true, default_cache: null}) ->
+module.exports = (options = {use_cache: true, subdir:false, default_cache: null}) ->
   alt_host = options.alt_host if options.alt_host?
   if options.default_cache?
     setTimeout ->
@@ -29,8 +29,9 @@ module.exports = (options = {use_cache: true, default_cache: null}) ->
 
   get_html = (url, html, cbk) ->
     debug 'getting from bablic', url, 'html:', html?
+    ld = if options.subdir then '&ld=subdir' else ''
     ops =
-      url: "http://seo.bablic.com/api/engine/seo?site=#{options.site_id}&url=#{encodeURIComponent(url)}"
+      url: "http://seo.bablic.com/api/engine/seo?site=#{options.site_id}&url=#{encodeURIComponent(url)}#{ld}"
       method: 'POST'
       json:
         html: html

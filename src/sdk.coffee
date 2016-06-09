@@ -8,11 +8,14 @@ OS = require 'os'
 request = require 'request'
 debug = require 'debug'
 debug = debug 'bablic:seo'
+url_parser = require 'url'
+qs_parser = require 'querystring'
 
 module.exports = (options) ->
   options = _.defaultsDeep options,
     site_id: null
     root_url: null
+    subdir: false
     seo:
       use_cache: true
       default_cache: null
@@ -21,7 +24,9 @@ module.exports = (options) ->
   unless (options.site_id and options.root_url)
     throw new Error('Middleware requires root_url and site_id')
 
-  unless options.seo is null or options.seo is false
+  if options.seo
+    if options.subdir
+      options.seo.subdir = true
     SEO = require('./seo')(options.seo)
 
   snippet_url = -> "#{OS.tmpdir()}/snippet"
@@ -65,7 +70,7 @@ module.exports = (options) ->
       return @meta['localeKeys'][match_index]
     return false
 
-  get_current_url = (req) -> "#{req.protocol}://#{req.hostname}/#{req.path}"
+  get_current_url = (req) -> "#{req.protocol}://#{req.hostname}/#{req.originalUrl}"
 
   get_locale = (req) =>
     auto = @meta['autoDetect']
@@ -91,7 +96,7 @@ module.exports = (options) ->
         return req.query['locale'] or from_cookie or detected or default_locale
 
       when 'subdir'
-        match = /^(\/(\w\w(_\w\w)?))(?:\/|$)/.exec(req.path)
+        match = /^(\/(\w\w(_\w\w)?))(?:\/|$)/.exec(req.originalUrl)
         return match[2] if match
         return detected or default_locale
 
@@ -118,6 +123,17 @@ module.exports = (options) ->
       try
         object = JSON.parse(data)
         cb null, object
+        debug 'checking snippet time'
+        fs.stat snippet_url(), (error, file_stats) ->
+          if error
+            return
+          last_modified = moment file_stats.mtime.getTime()
+          now = moment()
+          last_modified.add 120, 'minutes'
+          if now.isBefore(last_modified)
+            return debug 'snippet cache is good'
+          debug 'refresh snippet'
+          get_data cb
       catch e
         cb e
       get_data cb
@@ -147,12 +163,19 @@ module.exports = (options) ->
     res.send 'OK'
     return
 
-  register_callback = (req) ->
+  register_callback = () ->
+    root = options.root_url
+    # make sure it works if user didnt use protocol
+    if root.substr(0,4) isnt 'http'
+      root = 'http://' + root
+    # strip to have only protocol & domain
+    parsed = url_parser.parse root
+    root = parsed.protocol + '//' + parsed.host
     ops =
       url: "http://www.bablic.com/api/v1/site/#{options.site_id}"
       method: 'PUT'
       json:
-        callback: "#{options.root_url}/_bablicCallback"
+        callback: "#{root}/_bablicCallback"
     request ops, (error, response, body) ->
       if error?
         debug "setting callback failed"
@@ -163,8 +186,63 @@ module.exports = (options) ->
   should_handle = (req) ->
     return is_bot(req) and not ignorable(req)
 
+  get_link = (locale, url) ->
+    parsed = url_parser.parse url
+    protocol = if parsed.protocol then parsed.protocol + '//' else ''
+    host = parsed.host or ''
+    path = parsed.pathname or ''
+    query = parsed.query or ''
+    hash = parsed.hash or ''
+    locale_detection = @meta['localeDetection']
+    if options.subdir
+      locale_detection = 'subdir';
+    if (locale_detection is 'custom') and (!@meta['customUrls'])
+      locale_detection = 'querystring';
+
+    switch locale_detection
+      when 'custom':
+        custom_url = @meta['customUrls'][locale]
+        if custom_url
+          protocol = protocol or 'http://'
+          if custom_url.indexOf('?') > -1
+            [custom_url,qs] = custom_url.split '?'
+            query = '?' + qs
+          if custom_url.indexOf('/') > -1
+            parts = custom_url.split '/'
+            custom_url = parts.shift()
+            path = '/' + parts.join('/')
+          host = custom_url
+
+      when 'querystring'
+        query_parsed = {}
+        if query
+          query_parsed = qs_parser.parse(query.substr(1))
+        query_parsed['locale'] = locale
+        query = '?' + qs_parser.stringify(query_parsed)
+
+      when 'subdir'
+        locale_keys = @meta['localeKeys'] or []
+        locale_regex = RegExp('^\\/(' + locale_keys.join('|') + ')\\b')
+        path = path.replace(locale_regex,'')
+        if locale isnt @meta['original']
+          path = '/' + locale + path
+
+      when 'hash'
+        hash = '#locale_' + locale
+    return protocol + host + path + query + hash
+
+  alt_tags = (url, locale) ->
+    locales = @meta['localeKeys'] or []
+    locales = locales.slice()
+    locales.unshift @meta['original']
+    locales.map (l) ->
+      if l is locale
+        return ''
+      return '<link rel="alternate" href="' + get_link(l,url) + '" hreflang="#{l}">'
+
+
   return (req, res, next) ->
-    if req.path is '/_bablicCallback' and req.method is 'POST'
+    if req.originalUrl is '/_bablicCallback' and req.method is 'POST'
       debug 'Redirecting to Bablic callback'
       return handle_bablic_callback req, res
 
@@ -173,18 +251,24 @@ module.exports = (options) ->
     req.bablic =
       locale: locale
 
+    snippet = @snippet
+
+    if options.subdir and @meta['localeKeys']
+      LOCALE_REGEX = RegExp('^\\/(' + @meta['localeKeys'].join('|') + ')\\b')
+      req.url = req.url.replace(LOCALE_REGEX, '')
+      snippet = '<script type="text/javascript">var bablic=bablic||{};bablic.localeURL="subdir"</script>' + snippet
+
+    top = if @meta.original isnt locale then snippet else ''
+    bottom = if @meta.original is locale then snippet else ''
+
     res.locals.bablic =
       locale: locale
-      snippet: @snippet
-      snippetBottom: ''
-      snippetTop: ''
+      snippet: snippet
+      snippetBottom: '<!-- Bablic Footer -->' + bottom + '<!-- /Bablic Footer -->'
+      snippetTop: '<!-- Bablic Head -->' + alt_tags(req.originalUrl,locale) + top + '<!-- /Bablic Head -->'
 
-    if @meta.original isnt locale
-      res.locals.bablic.snippetTop = @snippet
-    else
-      res.locals.bablic.snippetBottom = @snippet
 
-    if (should_handle(req) is false) or (locale is @meta.original)
+    if (locale is @meta.original) or (should_handle(req) is false)
       debug 'ignored', req.url
       return next()
     if SEO?
