@@ -19,7 +19,7 @@ var options = {
 app.use(bablic(options));
 
 app.get('/',function(req,res) { 
-   console.log(req.bablic.locale);
+   console.log('the current language for the user is',req.bablic.locale);
    res.render('index.ejs',{});
 });
 
