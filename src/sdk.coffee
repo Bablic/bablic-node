@@ -32,8 +32,9 @@ module.exports = (options) ->
   snippet_url = -> "#{OS.tmpdir()}/snippet"
 
   get_data = (cb) ->
+    debug 'getting from bablic'
     ops =
-      url: "https://www.bablic.com/api/v1/site/#{options.site_id}"
+      url: "https://www.bablic.com/api/v1/site/#{options.site_id}?channel_id=node"
       method: 'GET'
     request ops, (error, response, body) ->
       if error?
@@ -45,6 +46,7 @@ module.exports = (options) ->
         debug 'data:', data
         save_data(body)
         cb null, data
+        register_callback()
       catch e
         debug
 
@@ -120,23 +122,26 @@ module.exports = (options) ->
 
   load_data = (cb) ->
     fs.readFile snippet_url(), (error, data) ->
-      try
-        object = JSON.parse(data)
-        cb null, object
-        debug 'checking snippet time'
-        fs.stat snippet_url(), (error, file_stats) ->
-          if error
-            return
-          last_modified = moment file_stats.mtime.getTime()
-          now = moment()
-          last_modified.add 120, 'minutes'
-          if now.isBefore(last_modified)
-            return debug 'snippet cache is good'
-          debug 'refresh snippet'
+      unless error
+        try
+          debug 'reading from temp file'
+          object = JSON.parse(data)
+          cb null, object
+          debug 'checking snippet time'
+          fs.stat snippet_url(), (error, file_stats) ->
+            if error
+              return
+            last_modified = moment file_stats.mtime.getTime()
+            now = moment()
+            last_modified.add 4, 'hours'
+            if now.isBefore(last_modified)
+              return debug 'snippet cache is good'
+            debug 'refresh snippet'
+            get_data cb
+        catch e
           get_data cb
-      catch e
-        cb e
-      get_data cb
+      else
+        get_data cb
 
   ignorable = (req) ->
     filename_tester = /\.(js|css|jpg|jpeg|png|mp3|avi|mpeg|bmp|wav|pdf|doc|xml|docx|xlsx|xls|json|kml|svg|eot|woff|woff2)/
@@ -153,7 +158,7 @@ module.exports = (options) ->
       return
     @snippet = data.snippet
     @meta = data.meta
-    debug 'saved to memory: ', data
+    debug 'snippet loaded', data.meta
     return
 
   handle_bablic_callback = (req, res) =>
@@ -171,8 +176,9 @@ module.exports = (options) ->
     # strip to have only protocol & domain
     parsed = url_parser.parse root
     root = parsed.protocol + '//' + parsed.host
+    debug 'registering callback', root
     ops =
-      url: "http://www.bablic.com/api/v1/site/#{options.site_id}"
+      url: "https://www.bablic.com/api/v1/site/#{options.site_id}?channel_id=node"
       method: 'PUT'
       json:
         callback: "#{root}/_bablicCallback"
@@ -181,7 +187,7 @@ module.exports = (options) ->
         debug "setting callback failed"
       return
 
-  register_callback()
+
 
   should_handle = (req) ->
     return is_bot(req) and not ignorable(req)
@@ -238,13 +244,18 @@ module.exports = (options) ->
     locales.map (l) ->
       if l is locale
         return ''
-      return '<link rel="alternate" href="' + get_link(l,url) + '" hreflang="#{l}">'
+      return '<link rel="alternate" href="' + get_link(l,url) + '" hreflang="' + l + '">'
+    .join('')
 
 
   return (req, res, next) ->
+
     if req.originalUrl is '/_bablicCallback' and req.method is 'POST'
       debug 'Redirecting to Bablic callback'
       return handle_bablic_callback req, res
+
+    unless @meta
+      return next()
 
     locale = get_locale(req)
 
@@ -267,9 +278,10 @@ module.exports = (options) ->
       snippetBottom: '<!-- Bablic Footer -->' + bottom + '<!-- /Bablic Footer -->'
       snippetTop: '<!-- Bablic Head -->' + alt_tags(req.originalUrl,locale) + top + '<!-- /Bablic Head -->'
 
+    unless SEO?
+      return next()
 
     if (locale is @meta.original) or (should_handle(req) is false)
       debug 'ignored', req.url
       return next()
-    if SEO?
-      return SEO req, res, next
+    return SEO req, res, next
