@@ -92,7 +92,7 @@ module.exports = (options = {use_cache: true, subdir:false, default_cache: null}
     return is_bot(req) and not ignorable(req)
 
   return (req, res, next) ->
-    if (should_handle(req) is false) or (locale is @meta.original)
+    if should_handle(req) is false
       debug 'ignored', req.url
       return next()
 
