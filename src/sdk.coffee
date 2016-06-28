@@ -259,13 +259,21 @@ module.exports = (options) ->
       return handle_bablic_callback req, res
 
     unless meta
+      debug 'not loaded yet'
       req.bablic =
         locale:''
-      res.locals.bablic =
-        locale:''
-        snippet:''
-        snippetBottom:''
-        snippetTop:''
+      extend_locals =
+        bablic:
+          locale: ''
+          snippet: ''
+          snippetBottom: '<!-- Bablic Footer OFF -->'
+          snippetTop: '<!-- Bablic Head OFF -->'
+
+      if typeof(res.locals) == 'function'
+        res.locals extend_locals
+      else
+        _.extend res.locals, extend_locals
+
       return next()
 
     locale = get_locale(req)
