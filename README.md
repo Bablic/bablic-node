@@ -11,7 +11,7 @@ var bablic = require('./bablic');
 var options = {
   site_id: '[your site id]',
   root_url: 'http://[root url of your site]',
-  sub_dir: true, // <- if you want to use sub_dir for languages like /es /fr
+  subdir: true, // <- if you want to use sub dir for languages like /es /fr
   seo: {
     default_cache: [ "http:/[url of smthing you know need caching]" ]
   }
