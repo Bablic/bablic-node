@@ -14,16 +14,20 @@ qs_parser = require 'querystring'
 meta = null
 snippet = ''
 
+escapeRegex = (str) ->
+  return str.replace(/([.?+^$[\]\\(){}|-])/g, "\\$1")
 module.exports = (options) ->
   options = _.defaultsDeep options,
     site_id: null
     root_url: null
     subdir: false
+    subdir_base:''
     seo:
       use_cache: true
       default_cache: null
     test: false
-
+  if options.sub_dir and not options.subdir
+    options.subdir = options.sub_dir
   unless (options.site_id)
     throw new Error('Middleware requires and site_id')
 
@@ -33,7 +37,10 @@ module.exports = (options) ->
       options.seo.subdir = true
     SEO = require('./seo')(options.seo)
 
-  snippet_url = -> "#{OS.tmpdir()}/snippet"
+  snippet_url = -> "#{OS.tmpdir()}/snippet.#{options.site_id}"
+
+  unless options.subdir_base
+    options.subdir_base = ''
 
   get_data = (cb) ->
     debug 'getting from bablic'
@@ -48,7 +55,7 @@ module.exports = (options) ->
       try
         data = JSON.parse body
         debug 'data:', data
-        save_data(body)
+        save_data data
         cb null, data
         register_callback()
       catch e
@@ -71,14 +78,21 @@ module.exports = (options) ->
     return false unless bablicookie
     match_index = meta['localeKeys'].indexOf bablicookie
     if match_index < 0
-      match_index  = meta['localeKeys'].indexOf bablicookie.substr(0, 2)
+      for key in meta['localeKeys']
+        if key[0] is bablicookie[0] and key[1] is bablicookie[1]
+          match_index = meta['localeKeys'].indexOf key
     unless match_index < 0
       return meta['localeKeys'][match_index]
     return false
 
   get_current_url = (req) -> "http://#{req.host}#{req.originalUrl}"
 
+  LOCALE_REGEX = null
+
+
   get_locale = (req) =>
+    if req.headers['bablic-locale']
+      return req.headers['bablic-locale']
     auto = meta['autoDetect']
     default_locale = meta['default']
     custom_urls = meta['customUrls']
@@ -90,21 +104,26 @@ module.exports = (options) ->
       if detected_lang
         match_index = locale_keys.indexOf detected_lang
         if match_index < 0
-          match_index = locale_keys.indexOf detected_lang.substr(0, 2)
+          for key in locale_keys
+            if key[0] is detected_lang[0] and key[1] is detected_lang[1]
+              match_index = locale_keys.indexOf key
         unless match_index < 0
           detected = locale_keys[match_index]
 
     from_cookie = detect_locale_from_cookie req
-    if options.sub_dir
+    if options.subdir
       locale_detection = 'subdir'
     switch locale_detection
       when 'querystring'
         return req.query['locale'] or from_cookie or detected or default_locale
 
       when 'subdir'
-        match = /^(\/(\w\w(_\w\w)?))(?:\/|$)/.exec(req.originalUrl)
+        if LOCALE_REGEX
+          match = LOCALE_REGEX.exec(req.originalUrl)
         return match[2] if match
-        return detected or default_locale
+        if detected and !from_cookie
+          return detected
+        return default_locale
 
       when 'custom'
         create_domain_rule = (str) ->
@@ -121,7 +140,7 @@ module.exports = (options) ->
 
   save_data = (bablic_data) ->
     bablic_data.id = options.site_id
-    fs.writeFile snippet_url(), bablic_data, (error) ->
+    fs.writeFile snippet_url(), JSON.stringify(bablic_data), (error) ->
       if error
         console.error 'Error saving snippet to cache', error
 
@@ -163,13 +182,16 @@ module.exports = (options) ->
       return
     snippet = data.snippet
     meta = data.meta
+    LOCALE_REGEX = null
     debug 'snippet loaded', data.meta
     return
 
   handle_bablic_callback = (req, res) =>
-    if req.body.event is 'snippet'
+    if req.body and req.body.event is 'snippet'
       snippet = req.body.data.snippet
       meta = req.body.data.meta
+      LOCALE_REGEX = null
+      save_data req.body.data
     res.send 'OK'
     return
 
@@ -231,11 +253,12 @@ module.exports = (options) ->
         query = '?' + qs_parser.stringify(query_parsed)
 
       when 'subdir'
-        locale_keys = meta['localeKeys'] or []
-        locale_regex = RegExp('^\\/(' + locale_keys.join('|') + ')\\b')
-        path = path.replace(locale_regex,'')
-        if locale isnt meta['original']
-          path = '/' + locale + path
+        if LOCALE_REGEX
+          path = path.replace(LOCALE_REGEX,'')
+          if locale isnt meta['original']
+            path = options.subdir_base + '/' + locale + path
+          else
+            path = options.subdir_base + path
 
       when 'hash'
         hash = '#locale_' + locale
@@ -253,10 +276,14 @@ module.exports = (options) ->
 
 
   return (req, res, next) ->
-
+    unless req.originalUrl
+      req.originalUrl = req.url
     if req.originalUrl is '/_bablicCallback' and req.method is 'POST'
       debug 'Redirecting to Bablic callback'
       return handle_bablic_callback req, res
+
+    if !LOCALE_REGEX and options.subdir and meta and meta['localeKeys']
+      LOCALE_REGEX = RegExp('^' + escapeRegex(options.subdir_base) + '\\/(' + meta['localeKeys'].join('|') + ')\\b')
 
     unless meta
       debug 'not loaded yet'
@@ -283,10 +310,9 @@ module.exports = (options) ->
 
     _snippet = snippet
 
-    if options.subdir and meta['localeKeys']
-      LOCALE_REGEX = RegExp('^\\/(' + meta['localeKeys'].join('|') + ')\\b')
+    if options.subdir and LOCALE_REGEX
       req.url = req.url.replace(LOCALE_REGEX, '')
-      _snippet = '<script type="text/javascript">var bablic=bablic||{};bablic.localeURL="subdir"</script>' + _snippet
+      _snippet = '<script type="text/javascript">var bablic=bablic||{};bablic.localeURL="subdir";bablic.subDirBase="#{options.subdir_base}";</script>' + _snippet
 
     top = if meta.original isnt locale then _snippet else ''
     bottom = if meta.original is locale then _snippet else ''

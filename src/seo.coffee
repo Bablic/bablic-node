@@ -30,6 +30,8 @@ module.exports = (options = {use_cache: true, subdir:false, default_cache: null}
   get_html = (url, html, cbk) ->
     debug 'getting from bablic', url, 'html:', html?
     ld = if options.subdir then '&ld=subdir' else ''
+    if options.subdir_base
+      ld += '&sdb=' + encodeURIComponent(options.subdir_base)
     ops =
       url: "http://seo.bablic.com/api/engine/seo?site=#{options.site_id}&url=#{encodeURIComponent(url)}#{ld}"
       method: 'POST'
@@ -97,12 +99,12 @@ module.exports = (options = {use_cache: true, subdir:false, default_cache: null}
       return next()
 
     my_url = "http://#{req.headers.host + req.originalUrl}"
-    my_url = "http://#{alt_host}#{req.url}" if alt_host?
+    my_url = "http://#{alt_host}#{req.originalUrl}" if alt_host?
     get_from_cache my_url, (error, data) ->
       cache_only = false
       if data?
         debug 'flushing from cache'
-        res.set('Content-Type','text/html; charset=utf-8');
+        res.setHeader('Content-Type','text/html; charset=utf-8');
         res.write(data)
         res.end()
         cache_only = true
@@ -153,10 +155,10 @@ module.exports = (options = {use_cache: true, subdir:false, default_cache: null}
       check_head = () ->
         return if head_checked
         is_html = false
-        if res.get('content-type') isnt undefined
-          is_html = (res.get('content-type').indexOf('text/html') > -1)
+        if res.getHeader('content-type') isnt undefined
+          is_html = (res.getHeader('content-type').indexOf('text/html') > -1)
         unless is_html
-          debug 'not html', res.get('content-type')
+          debug 'not html', res.getHeader('content-type')
           restore_override()
         if res.statusCode < 200 or res.statusCode >= 300
           debug 'error response', res.statusCode
@@ -197,7 +199,7 @@ module.exports = (options = {use_cache: true, subdir:false, default_cache: null}
             res.end()
             return
           debug 'flushing translated'
-          res.set 'Content-Length', Buffer.byteLength(data)
+          res.setHeader 'Content-Length', Buffer.byteLength(data)
           res.write data
           res.end()
           return
