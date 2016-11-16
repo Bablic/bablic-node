@@ -11,12 +11,12 @@ debug = debug 'bablic:seo'
 url_parser = require 'url'
 qs_parser = require 'querystring'
 
-meta = null
-snippet = ''
 
 escapeRegex = (str) ->
   return str.replace(/([.?+^$[\]\\(){}|-])/g, "\\$1")
 module.exports = (options) ->
+  meta = null
+  snippet = ''
   options = _.defaultsDeep options,
     site_id: null
     root_url: null
@@ -120,7 +120,7 @@ module.exports = (options) ->
       when 'subdir'
         if LOCALE_REGEX
           match = LOCALE_REGEX.exec(req.originalUrl)
-        return match[2] if match
+        return match[1] if match
         if detected and !from_cookie
           return detected
         return default_locale

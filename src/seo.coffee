@@ -98,6 +98,7 @@ module.exports = (options = {use_cache: true, subdir:false, default_cache: null}
       debug 'ignored', req.url
       return next()
     delete req.headers['accept-encoding'];
+    req.bablic.proxied = true;
     my_url = "http://#{req.headers.host + req.originalUrl}"
     my_url = "http://#{alt_host}#{req.originalUrl}" if alt_host?
     get_from_cache my_url, (error, data) ->
