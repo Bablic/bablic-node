@@ -22,6 +22,7 @@ module.exports = (options) ->
     root_url: null
     subdir: false
     subdir_base:''
+    subdir_optional: false
     seo:
       use_cache: true
       default_cache: null
@@ -31,11 +32,6 @@ module.exports = (options) ->
   unless (options.site_id)
     throw new Error('Middleware requires and site_id')
 
-  if options.seo
-    options.seo.site_id = options.site_id
-    if options.subdir
-      options.seo.subdir = true
-    SEO = require('./seo')(options.seo)
 
   snippet_url = -> "#{OS.tmpdir()}/snippet.#{options.site_id}"
 
@@ -257,13 +253,20 @@ module.exports = (options) ->
           path = path.replace(LOCALE_REGEX,'')
           if locale isnt meta['original']
             path = options.subdir_base + '/' + locale + path
-          else
+          else unless options.subdir_optional
             path = options.subdir_base + path
 
       when 'hash'
         hash = '#locale_' + locale
     return protocol + host + path + query + hash
-
+  if options.seo
+    options.seo.site_id = options.site_id
+    options.seo.get_link = get_link
+    if options.subdir
+      options.seo.subdir = true
+      options.seo.subdir_base = options.subdir_base
+      options.seo.subdir_optional = options.subdir_optional
+    SEO = require('./seo')(options.seo)
   alt_tags = (url, locale) ->
     locales = meta['localeKeys'] or []
     locales = locales.slice()
@@ -283,7 +286,7 @@ module.exports = (options) ->
       return handle_bablic_callback req, res
 
     if !LOCALE_REGEX and options.subdir and meta and meta['localeKeys']
-      LOCALE_REGEX = RegExp('^' + escapeRegex(options.subdir_base) + '\\/(' + meta['localeKeys'].join('|') + ')\\b')
+      LOCALE_REGEX = RegExp('^(?:' + escapeRegex(options.subdir_base) + ')?\\/(' + meta['localeKeys'].join('|') + ')\\b')
 
     unless meta
       debug 'not loaded yet'
@@ -312,7 +315,7 @@ module.exports = (options) ->
 
     if options.subdir and LOCALE_REGEX
       req.url = req.url.replace(LOCALE_REGEX, '')
-      _snippet = '<script type="text/javascript">var bablic=bablic||{};bablic.localeURL="subdir";bablic.subDirBase="#{options.subdir_base}";</script>' + _snippet
+      _snippet = '<script type="text/javascript">var bablic=bablic||{};bablic.localeURL="subdir";bablic.subDirBase="#{options.subdir_base}";bablic.subDirOptional=#{!!options.subdir_optional};</script>' + _snippet
 
     top = if meta.original isnt locale then _snippet else ''
     bottom = if meta.original is locale then _snippet else ''

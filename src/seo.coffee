@@ -9,7 +9,10 @@ request = require 'request'
 debug = require 'debug'
 debug = debug 'bablic:seo'
 
-module.exports = (options = {use_cache: true, subdir:false, default_cache: null}) ->
+ignore_not_html_or_xml = /\.(js|css|jpg|jpeg|png|mp3|avi|mpeg|bmp|wav|pdf|doc|docx|xlsx|xls|json|kml|svg|eot|woff|woff2)/i
+detect_url = /(\b(https?|ftp|file):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|])/ig
+
+module.exports = (options = {use_cache: true, subdir:false,subdir_base:'',subdir_optional:false, default_cache: null, get_link: null}) ->
   alt_host = options.alt_host if options.alt_host?
   if options.default_cache?
     setTimeout ->
@@ -30,10 +33,12 @@ module.exports = (options = {use_cache: true, subdir:false, default_cache: null}
   get_html = (url, html, cbk) ->
     debug 'getting from bablic', url, 'html:', html?
     ld = if options.subdir then '&ld=subdir' else ''
+    sdb = if options.subdir_base then '&sdb=' + encodeURIComponent(options.subdir_base) else ''
+    sdo = if options.subdir_optional then '&sdo=true' else ''
     if options.subdir_base
       ld += '&sdb=' + encodeURIComponent(options.subdir_base)
     ops =
-      url: "http://seo.bablic.com/api/engine/seo?site=#{options.site_id}&url=#{encodeURIComponent(url)}#{ld}"
+      url: "http://seo.bablic.com/api/engine/seo?site=#{options.site_id}&url=#{encodeURIComponent(url)}#{ld}#{sdb}#{sdo}"
       method: 'POST'
       json:
         html: html
@@ -60,8 +65,8 @@ module.exports = (options = {use_cache: true, subdir:false, default_cache: null}
     last_modified.add 30, 'minutes'
     return now.isBefore(last_modified)
 
-  get_from_cache = (url, callback) ->
-    return callback() unless options.use_cache
+  get_from_cache = (url, skip, callback) ->
+    return callback() unless options.use_cache and !skip
     file_path = full_path_from_url(url)
     fs.stat file_path, (error, file_stats) ->
       if error?
@@ -82,26 +87,31 @@ module.exports = (options = {use_cache: true, subdir:false, default_cache: null}
         callback error, data
     return null
 
+
   ignorable = (req) ->
-    filename_tester = /\.(js|css|jpg|jpeg|png|mp3|avi|mpeg|bmp|wav|pdf|doc|xml|docx|xlsx|xls|json|kml|svg|eot|woff|woff2)/
+    filename_tester = /\.(js|css|jpg|jpeg|png|mp3|avi|mpeg|bmp|wav|pdf|doc|xml|docx|xlsx|xls|json|kml|svg|eot|woff|woff2)/i
     return filename_tester.test req.url
 
   is_bot = (req) ->
-    google_tester = new RegExp /bot|crawler|baiduspider|facebookexternalhit|Twitterbot|80legs|mediapartners-google|adsbot-google/i
+    google_tester = /bot|crawler|baiduspider|facebookexternalhit|Twitterbot|80legs|mediapartners-google|adsbot-google|seo/i
     return google_tester.test req.headers['user-agent']
 
   should_handle = (req) ->
     return is_bot(req) and not ignorable(req)
 
+  should_replace_urls = (req) ->
+    return /sitemap/i.test req.url
+
   return (req, res, next) ->
-    if should_handle(req) is false
+    replace_urls = should_replace_urls(req)
+    if should_handle(req) is false and replace_urls is false
       debug 'ignored', req.url
       return next()
     delete req.headers['accept-encoding'];
     req.bablic.proxied = true;
     my_url = "http://#{req.headers.host + req.originalUrl}"
     my_url = "http://#{alt_host}#{req.originalUrl}" if alt_host?
-    get_from_cache my_url, (error, data) ->
+    get_from_cache my_url, replace_urls, (error, data) ->
       cache_only = false
       if data?
         debug 'flushing from cache'
@@ -157,7 +167,7 @@ module.exports = (options = {use_cache: true, subdir:false, default_cache: null}
         return if head_checked
         is_html = false
         if res.getHeader('content-type') isnt undefined
-          is_html = (res.getHeader('content-type').indexOf('text/html') > -1)
+          is_html = (res.getHeader('content-type').indexOf('text/html') > -1) or replace_urls
         unless is_html
           debug 'not html', res.getHeader('content-type')
           restore_override()
@@ -190,6 +200,16 @@ module.exports = (options = {use_cache: true, subdir:false, default_cache: null}
           res.write chunk, encoding
 
         original_html = chunks.join ''
+        if replace_urls
+          restore_override()
+          data = data.replace detect_url, (url) ->
+            if ignore_not_html_or_xml.test(url)
+                return url
+            return get_link req.bablic.locale, url
+          res.setHeader 'Content-Length', Buffer.byteLength(data)
+          res.write data
+          res.end()
+          return
         get_html my_url, original_html, (error, data) ->
           return if cache_only
           restore_override()
