@@ -23,6 +23,7 @@ module.exports = (options) ->
     subdir: false
     subdir_base:''
     subdir_optional: false
+    onReady:null
     seo:
       use_cache: true
       default_cache: null
@@ -176,6 +177,8 @@ module.exports = (options) ->
       debug "Error:", error
       debug error
       return
+    if options.onReady
+      options.onReady()
     snippet = data.snippet
     meta = data.meta
     LOCALE_REGEX = null
