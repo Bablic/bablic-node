@@ -204,7 +204,9 @@ module.exports = (options = {use_cache: true, subdir:false,subdir_base:'',subdir
           restore_override()
           data = data.replace detect_url, (url) ->
             if ignore_not_html_or_xml.test(url)
-                return url
+              return url
+            if url.indexOf(req.headers.host) is -1 and (!alt_host or url.indexOf(alt_host) is -1)
+              return url
             return get_link req.bablic.locale, url
           res.setHeader 'Content-Length', Buffer.byteLength(data)
           res.write data
