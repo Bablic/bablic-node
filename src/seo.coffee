@@ -35,8 +35,6 @@ module.exports = (options = {use_cache: true, subdir:false,subdir_base:'',subdir
     ld = if options.subdir then '&ld=subdir' else ''
     sdb = if options.subdir_base then '&sdb=' + encodeURIComponent(options.subdir_base) else ''
     sdo = if options.subdir_optional then '&sdo=true' else ''
-    if options.subdir_base
-      ld += '&sdb=' + encodeURIComponent(options.subdir_base)
     ops =
       url: "http://seo.bablic.com/api/engine/seo?site=#{options.site_id}&url=#{encodeURIComponent(url)}#{ld}#{sdb}#{sdo}"
       method: 'POST'
@@ -101,7 +99,6 @@ module.exports = (options = {use_cache: true, subdir:false,subdir_base:'',subdir
 
   should_replace_urls = (req) ->
     return /sitemap/i.test req.url
-
   return (req, res, next) ->
     replace_urls = should_replace_urls(req)
     if should_handle(req) is false and replace_urls is false
@@ -109,13 +106,18 @@ module.exports = (options = {use_cache: true, subdir:false,subdir_base:'',subdir
       return next()
     delete req.headers['accept-encoding'];
     req.bablic.proxied = true;
-    my_url = "http://#{req.headers.host + req.originalUrl}"
+    protocol = req.headers['x-forwarded-proto'] or 'http'
+    original_url = "#{protocol}://#{req.headers.host}#{req.originalUrl}"
+    my_url = original_url
     my_url = "http://#{alt_host}#{req.originalUrl}" if alt_host?
     get_from_cache my_url, replace_urls, (error, data) ->
       cache_only = false
       if data?
         debug 'flushing from cache'
         res.setHeader('Content-Type','text/html; charset=utf-8');
+        res.setHeader 'Content-Language', req.bablic.locale
+        res.setHeader 'Link', options.alternate_header(original_url, req.bablic.locale)
+
         res.write(data)
         res.end()
         cache_only = true
@@ -200,14 +202,16 @@ module.exports = (options = {use_cache: true, subdir:false,subdir_base:'',subdir
           res.write chunk, encoding
 
         original_html = chunks.join ''
+        res.setHeader 'Content-Language', req.bablic.locale
+        res.setHeader 'Link', options.alternate_header(original_url, req.bablic.locale)
         if replace_urls
           restore_override()
-          data = data.replace detect_url, (url) ->
+          data = original_html.replace detect_url, (url) ->
             if ignore_not_html_or_xml.test(url)
               return url
             if url.indexOf(req.headers.host) is -1 and (!alt_host or url.indexOf(alt_host) is -1)
               return url
-            return get_link req.bablic.locale, url
+            return options.get_link req.bablic.locale, url
           res.setHeader 'Content-Length', Buffer.byteLength(data)
           res.write data
           res.end()

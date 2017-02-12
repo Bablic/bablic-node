@@ -177,12 +177,12 @@ module.exports = (options) ->
       debug "Error:", error
       debug error
       return
-    if options.onReady
-      options.onReady()
     snippet = data.snippet
     meta = data.meta
     LOCALE_REGEX = null
     debug 'snippet loaded', data.meta
+    if options.onReady
+      options.onReady()
     return
 
   handle_bablic_callback = (req, res) =>
@@ -222,7 +222,7 @@ module.exports = (options) ->
     protocol = if parsed.protocol then parsed.protocol + '//' else ''
     host = parsed.host or ''
     path = parsed.pathname or ''
-    query = parsed.query or ''
+    query = parsed.search or ''
     hash = parsed.hash or ''
     locale_detection = meta['localeDetection']
     if options.subdir
@@ -262,9 +262,23 @@ module.exports = (options) ->
       when 'hash'
         hash = '#locale_' + locale
     return protocol + host + path + query + hash
+
+  alternate_header = (url, locale) ->
+    unless meta and meta['localeKeys']
+      return ''
+    locales = _ meta['localeKeys']
+    .push meta['original']
+    .without locale
+    .unique()
+    .valueOf()
+    return locales.map (locale) ->
+      return "<#{get_link(locale, url)}>; rel='alternate'; hreflang='#{locale}'"
+    .join ', '
+
   if options.seo
     options.seo.site_id = options.site_id
     options.seo.get_link = get_link
+    options.seo.alternate_header = alternate_header
     if options.subdir
       options.seo.subdir = true
       options.seo.subdir_base = options.subdir_base
@@ -318,7 +332,7 @@ module.exports = (options) ->
 
     if options.subdir and LOCALE_REGEX
       req.url = req.url.replace(LOCALE_REGEX, '')
-      _snippet = '<script type="text/javascript">var bablic=bablic||{};bablic.localeURL="subdir";bablic.subDirBase="#{options.subdir_base}";bablic.subDirOptional=#{!!options.subdir_optional};</script>' + _snippet
+      _snippet = '<script type="text/javascript">var bablic=bablic||{};bablic.localeURL="subdir";bablic.subDirBase="' + (options.subdir_base) + '";bablic.subDirOptional=' + (!!options.subdir_optional) + ';</script>' + _snippet
 
     top = if meta.original isnt locale then _snippet else ''
     bottom = if meta.original is locale then _snippet else ''
