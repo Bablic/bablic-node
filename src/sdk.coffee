@@ -301,7 +301,7 @@ module.exports = (options) ->
     if req.originalUrl is '/_bablicCallback' and req.method is 'POST'
       debug 'Redirecting to Bablic callback'
       return handle_bablic_callback req, res
-
+    res.setHeader 'x-bablic-id', options.site_id
     if !LOCALE_REGEX and options.subdir and meta and meta['localeKeys']
       LOCALE_REGEX = RegExp('^(?:' + escapeRegex(options.subdir_base) + ')?\\/(' + meta['localeKeys'].join('|') + ')\\b')
 
