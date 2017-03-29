@@ -91,14 +91,14 @@ module.exports = (options = {use_cache: true, subdir:false,subdir_base:'',subdir
     return filename_tester.test req.url
 
   is_bot = (req) ->
-    google_tester = /bot|crawler|baiduspider|facebookexternalhit|Twitterbot|80legs|mediapartners-google|adsbot-google|seo/i
+    google_tester = /bot|crawler|baiduspider|facebook|twitter|80legs|google|seo/i
     return google_tester.test req.headers['user-agent']
 
   should_handle = (req) ->
     return is_bot(req) and not ignorable(req)
 
   should_replace_urls = (req) ->
-    return /sitemap/i.test req.url
+    return /sitemap|robots/i.test req.url
   return (req, res, next) ->
     replace_urls = should_replace_urls(req)
     if should_handle(req) is false and replace_urls is false

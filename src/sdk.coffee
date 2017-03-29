@@ -298,7 +298,7 @@ module.exports = (options) ->
   return (req, res, next) ->
     unless req.originalUrl
       req.originalUrl = req.url
-    if req.originalUrl is '/_bablicCallback' and req.method is 'POST'
+    if (req.originalUrl is '/_bablicCallback' and req.method is 'POST') or req.headers['x-bablic-refresh']
       debug 'Redirecting to Bablic callback'
       return handle_bablic_callback req, res
     res.setHeader 'x-bablic-id', options.site_id
@@ -341,8 +341,8 @@ module.exports = (options) ->
       bablic:
         locale: locale
         snippet: _snippet
-        snippetBottom: '<!-- Bablic Footer -->' + bottom + '<!-- /Bablic Footer -->'
-        snippetTop: '<!-- Bablic Head -->' + alt_tags(req.originalUrl,locale) + top + '<!-- /Bablic Head -->'
+        snippetBottom: '<!-- start Bablic Footer -->' + bottom + '<!-- end Bablic Head -->'
+        snippetTop: '<!-- start Bablic Head -->' + alt_tags(req.originalUrl,locale) + top + '<!-- start Bablic Head -->'
 
     if typeof(res.locals) == 'function'
       res.locals extend_locals
