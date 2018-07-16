@@ -1,7 +1,7 @@
 {
   "name": "bablic",
-  "version": "0.0.41",
-  "main": "dist/index.js",
+  "version": "0.1.0",
+  "main": "index.js",
   "repository": {
     "type": "git",
     "url": "git://github.com/Bablic/bablic-node.git"
@@ -14,29 +14,44 @@
     "i18n"
   ],
   "author": {
-    "name": "Erez Hochman"
+    "name": "Bablic LTD"
   },
   "bugs": {
     "url": "https://github.com/Bablic/bablic-node/issues"
   },
   "dependencies": {
+    "@types/async": "^2.0.40",
+    "@types/cookie": "^0.3.1",
+    "@types/debug": "0.0.29",
+    "@types/lodash": "^4.14.71",
+    "@types/node": "^8.0.17",
+    "@types/request": "^2.0.0",
     "async": "^1.5.0",
     "cookie": "^0.2.4",
     "debug": "^2.2.0",
     "lodash": "^3.10.0",
-    "moment": "^2.10.6",
+    "moment": "^2.18.1",
     "request": "^2.71.0"
   },
   "devDependencies": {
+    "@types/chai": "^4.0.1",
+    "@types/mocha": "^2.2.41",
+    "chai": "^4.1.0",
     "coffee-script": "~1.0.0",
-    "debug": "^2.2.0"
+    "debug": "^2.2.0",
+    "mocha": "^3.5.0",
+    "ts-node": "^3.3.0",
+    "typescript": "^2.4.2"
   },
   "scripts": {
-    "prepublish": "coffee --bare --compile --output dist/ src/"
+    "tsc": "tsc",
+    "prepublish": "tsc",
+    "dev": "nodemon --watch *.ts --ignore *.spec.ts --exec ts-node tests/hello.ts",
+    "test": "tsc && mocha tests/hello.js"
   },
   "engines": {
-    "node": "^0.10.x",
-    "npm": "^1.2.30"
+    "node": ">=8.0.0",
+    "npm": ">3.10.10"
   },
   "readme": "# Bablic-Seo",
   "readmeFilename": "README.md",
