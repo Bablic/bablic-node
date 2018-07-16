@@ -6,23 +6,35 @@ $ npm install --save bablic
 ```
 
 Config your app:
-```sh
-var bablic = require('./bablic');
-var options = {
-  site_id: '[your site id]',
-  root_url: 'http://[root url of your site]',
-  subdir: true, // <- if you want to use sub dir for languages like /es /fr
-  seo: {
-    default_cache: [ "http:/[url of smthing you know need caching]" ]
-  }
-};
-app.use(bablic(options));
 
+Javascript:
+```sh
+const {create} = require("bablic");
+app.use(create({
+   siteId: '[your site id]',
+   rootUrl: 'http://[root url of your site]',
+   subDir: true, // if you want to use sub dir for languages like /es/ /fr/
+   seo: {
+      defaultCache: ["http://[url of something you know you need caching to"]
+   }));
+   
 app.get('/',function(req,res) { 
    console.log('the current language for the user is',req.bablic.locale);
    res.render('index.ejs',{});
 });
 
+```
+
+Typescript:
+```sh
+import {create} from "bablic";
+app.use(create({
+   siteId: '[your site id]',
+   rootUrl: 'http://[root url of your site]',
+   subDir: true, // if you want to use sub dir for languages like /es/ /fr/
+   seo: {
+      defaultCache: ["http://[url of something you know you need caching to"]
+   }));
 ```
 
 In your layout template file you can add the snippet:
