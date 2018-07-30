@@ -239,9 +239,8 @@ export class SeoMiddleware{
                         restore_override();
 
                         // detect that URL is of sitemap and is XML (res content type).If XML, then try to parse XML. And go over all
-                        if (/sitemap/i.test(req.url) &&
-                            self.readHeaderAsString(res, 'content-type').indexOf('text/xml') > -1 &&
-                            lastModified[req.bablic.locale]){
+                        if (lastModified && lastModified[req.bablic.locale] && /sitemap/i.test(req.url) &&
+                            self.readHeaderAsString(res, 'content-type').indexOf('text/xml') > -1){
 
                             const bablicDate = new Date(lastModified[req.bablic.locale]);
                             original_html = original_html.replace(new RegExp("<lastmod>(.*?)</lastmod>", "g"), (captureAll, dateCapture) => {

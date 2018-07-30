@@ -37,6 +37,7 @@ export interface BablicOptions {
             [locale: string]: string,
         },
     };
+    lastModified?: LastModifiedByLocale;
 }
 export interface SiteData {
     id?: string;
@@ -129,6 +130,7 @@ export class BablicMiddleware {
         if (this.options.snippet) {
             this.snippet = this.options.snippet;
         }
+        this.lastModified = this.options.lastModified;
 
         if (this.meta && this.snippet) {
             if (this.options.onReady) {
@@ -374,7 +376,7 @@ export class BablicMiddleware {
             debug("ignored same language", req.url);
             return next();
         }
-        return this.seoMiddleware(this.meta,this.lastModified, this.keywordsByLocale, this.reverseKeywordByLocale, req, res, next);
+        return this.seoMiddleware(this.meta, this.lastModified, this.keywordsByLocale, this.reverseKeywordByLocale, req, res, next);
     }
 
     private processKeywords(keywords: {[keyword: string]: {[locale: string]: string}}) {
