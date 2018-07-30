@@ -3,11 +3,13 @@
 import * as async from 'async';
 import * as crypto from 'crypto';
 import * as fs from 'fs';
+import {emptyDir, ensureDirSync} from "fs-extra";
 import * as moment from 'moment';
 import * as OS from 'os';
 import * as request from 'request';
 import * as Debug from 'debug';
 import * as UrlParser from 'url';
+import * as mkdirp from 'mkdirp';
 
 const debug = Debug('bablic:seo');
 
@@ -19,6 +21,7 @@ import {RequestResponse} from "request";
 export interface SeoOptions {
     useCache?:boolean;
     defaultCache?:string[];
+    cacheDir?: string;
     test?:boolean;
     altHost?: string;
 }
@@ -30,7 +33,12 @@ export interface SeoSubDirOptions {
 }
 
 export class SeoMiddleware{
-    constructor(private siteId: string, private options: SeoOptions, private subDirOptions: SeoSubDirOptions){}
+    constructor(private siteId: string, private options: SeoOptions, private subDirOptions: SeoSubDirOptions){
+        if(options.useCache) {
+            debug("ensure cache dir exists");
+            ensureDirSync(options.cacheDir);
+        }
+    }
     getHtml(url: string, locale: string, html?: string): Promise<string> {
         debug('getting from bablic', url, 'html:', !!html );
         let ld = '';
@@ -60,7 +68,7 @@ export class SeoMiddleware{
 
                 debug('received translated html', response.statusCode);
                 resolve(body);
-                fs.writeFile(fullPathFromUrl(url), body, error => error && console.error('Error saving to cache', error));
+                fs.writeFile(fullPathFromUrl(url, this.options.cacheDir), body, error => error && console.error('Error saving to cache', error));
             });
         });
     }
@@ -68,7 +76,7 @@ export class SeoMiddleware{
         if (!this.options.useCache || skip)
             return callback();
 
-        let file_path = fullPathFromUrl(url);
+        let file_path = fullPathFromUrl(url, this.options.cacheDir);
         fs.stat(file_path, (error:NodeJS.ErrnoException, file_stats: Stats) => {
             if (error)
                 return callback(error);
@@ -95,7 +103,11 @@ export class SeoMiddleware{
         }
 
     }
-
+    async purgeCache(): Promise<void> {
+        debug("purge cache", this.options.cacheDir);
+        await emptyDir(this.options.cacheDir);
+        debug("purge done");
+    }
     middleware(){
         return (meta:SiteMeta,lastModified:LastModifiedByLocale, keywordsByLocale: KeywordMapper, reverseKeywordByLocale: KeywordMapper, req: ExtendedRequest, res: ExtendedResponse, next: () => void) => {
 
@@ -313,9 +325,8 @@ export function setRenderServer(url: string) {
 function hash(data){
     return crypto.createHash('md5').update(data).digest('hex');
 }
-
-function fullPathFromUrl(url) {
-    return OS.tmpdir() + "/" + hash(url);
+function fullPathFromUrl(url, cacheDir) {
+    return cacheDir + "/" + hash(url);
 }
 function cacheValid(file_stats) {
     let last_modified = moment(file_stats.mtime.getTime());

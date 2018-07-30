@@ -9,6 +9,7 @@ import * as url_parser from "url";
 
 import {SeoMiddleware, SeoOptions} from "./seo";
 import {ExtendedRequest, ExtendedResponse, getLocaleByURL, getLink, SiteMeta, KeywordMapper,LastModifiedByLocale} from "./common";
+import {IncomingMessage, ServerResponse} from "http";
 
 const debug = Debug("bablic:seo");
 
@@ -66,6 +67,7 @@ const Defaults: BablicOptions = {
         useCache: true,
         defaultCache: [],
         test: false,
+        cacheDir: OS.tmpdir() + "/bpCache",
     },
     folders: null,
 };
@@ -82,7 +84,7 @@ export const BackwardCompSEOOptions = {
     defaultCache: ["default_cache"],
 };
 
-export class BablicMiddleware {
+export class BablicSDK {
     public meta: SiteMeta = null;
     public lastModified: LastModifiedByLocale = null;
     public snippet = "";
@@ -92,6 +94,7 @@ export class BablicMiddleware {
 
     private keywordsByLocale: KeywordMapper = null;
     private reverseKeywordByLocale: KeywordMapper = null;
+    private seoHandler: SeoMiddleware;
     constructor(options: BablicOptions) {
         let generalOptions = options as any;
         for (let key in BackwardCompOptions) {
@@ -120,8 +123,8 @@ export class BablicMiddleware {
         }
 
         this.options = _.defaultsDeep(options, Defaults);
-        let seoHandler = new SeoMiddleware(this.options.siteId, this.options.seo, {subDir: this.options.subDir, subDirBase: this.options.subDirBase, subDirOptional: this.options.subDirOptional});
-        this.seoMiddleware = seoHandler.middleware();
+        this.seoHandler = new SeoMiddleware(this.options.siteId, this.options.seo, {subDir: this.options.subDir, subDirBase: this.options.subDirBase, subDirOptional: this.options.subDirOptional});
+        this.seoMiddleware = this.seoHandler.middleware();
 
         if (this.options.meta) {
             this.meta = this.options.meta;
@@ -269,6 +272,11 @@ export class BablicMiddleware {
             .valueOf() as string[];
         return tags.join("");
     }
+    public purgeCache(): Promise<void> {
+        if (!this.seoHandler)
+            return Promise.resolve();
+        return this.seoHandler.purgeCache();
+    }
     private generateOriginalPath(url: string, locale: string): string {
         let urlParts = url.split("?");
         let pathname = urlParts[0];
@@ -294,7 +302,9 @@ export class BablicMiddleware {
         }
     }
 
-    public handle(req: ExtendedRequest, res: ExtendedResponse, next: () => void) {
+    public handle(_req: IncomingMessage, _res: ServerResponse, next: () => void) {
+        const req = _req as ExtendedRequest;
+        const res = _res as ExtendedResponse;
         if (!req.originalUrl) {
             req.originalUrl = req.url;
         }

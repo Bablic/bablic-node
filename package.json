@@ -1,6 +1,6 @@
 {
   "name": "bablic",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "main": "index.js",
   "repository": {
     "type": "git",
@@ -23,12 +23,14 @@
     "@types/async": "^2.0.40",
     "@types/cookie": "^0.3.1",
     "@types/debug": "0.0.29",
+    "@types/fs-extra": "^5.0.4",
     "@types/lodash": "^4.14.71",
     "@types/node": "^8.0.17",
     "@types/request": "^2.0.0",
     "async": "^1.5.0",
     "cookie": "^0.2.4",
     "debug": "^2.2.0",
+    "fs-extra": "^7.0.0",
     "lodash": "^3.10.0",
     "moment": "^2.18.1",
     "request": "^2.71.0"

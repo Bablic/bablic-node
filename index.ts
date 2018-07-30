@@ -1,15 +1,15 @@
 
-import {BablicMiddleware, BablicOptions} from "./lib/sdk";
+import {BablicSDK, BablicOptions} from "./lib/sdk";
 import {Middleware, ExtendedRequest, ExtendedResponse} from "./lib/common";
 import {IncomingMessage, ServerResponse} from "http";
 
-const BablicConstructor = (options: BablicOptions): Middleware => {
-    const middleware = new BablicMiddleware(options);
-    return (req: IncomingMessage , res: ServerResponse, next: () => void) => middleware.handle(req as ExtendedRequest, res as ExtendedResponse, next);
+const createMiddleware = (options: BablicOptions): Middleware => {
+    const middleware = new BablicSDK(options);
+    return middleware.handle;
 };
 
-export {BablicMiddleware, BablicOptions} from "./lib/sdk";
+export {BablicSDK, BablicOptions} from "./lib/sdk";
 export {Middleware, ExtendedRequest, ExtendedResponse} from "./lib/common";
 export {setRenderServer} from "./lib/seo";
-export const create = BablicConstructor;
+export const create = createMiddleware;
 
