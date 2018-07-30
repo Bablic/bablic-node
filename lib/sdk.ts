@@ -8,7 +8,7 @@ import * as Debug from "debug";
 import * as url_parser from "url";
 
 import {SeoMiddleware, SeoOptions} from "./seo";
-import {ExtendedRequest, ExtendedResponse, getLocaleByURL, getLink, SiteMeta, KeywordMapper} from "./common";
+import {ExtendedRequest, ExtendedResponse, getLocaleByURL, getLink, SiteMeta, KeywordMapper,LastModifiedByLocale} from "./common";
 
 const debug = Debug("bablic:seo");
 
@@ -38,7 +38,6 @@ export interface BablicOptions {
         },
     };
 }
-
 export interface SiteData {
     id?: string;
     error?: string;
@@ -49,6 +48,9 @@ export interface SiteData {
             [locale: string]: string,
         },
     };
+    // When did each language was last modified
+    lastModified:LastModifiedByLocale
+
 }
 
 const Defaults: BablicOptions = {
@@ -81,10 +83,11 @@ export const BackwardCompSEOOptions = {
 
 export class BablicMiddleware {
     public meta: SiteMeta = null;
+    public lastModified: LastModifiedByLocale = null;
     public snippet = "";
     private options: BablicOptions;
     private LOCALE_REGEX: RegExp;
-    private seoMiddleware: (meta: SiteMeta, keywordsByLocale: KeywordMapper, reverseKeywordByLocale: KeywordMapper, req: ExtendedRequest, res: ExtendedResponse, next: () => void) => void;
+    private seoMiddleware: (meta: SiteMeta, lastModified:LastModifiedByLocale, keywordsByLocale: KeywordMapper, reverseKeywordByLocale: KeywordMapper, req: ExtendedRequest, res: ExtendedResponse, next: () => void) => void;
 
     private keywordsByLocale: KeywordMapper = null;
     private reverseKeywordByLocale: KeywordMapper = null;
@@ -224,6 +227,7 @@ export class BablicMiddleware {
                 }
                 this.meta = object.meta;
                 this.snippet = object.snippet;
+                this.lastModified = object.lastModified;
                 this.processKeywords(object.keywords);
                 cbk();
             } catch (e) {
@@ -369,7 +373,7 @@ export class BablicMiddleware {
             debug("ignored same language", req.url);
             return next();
         }
-        return this.seoMiddleware(this.meta, this.keywordsByLocale, this.reverseKeywordByLocale, req, res, next);
+        return this.seoMiddleware(this.meta,this.lastModified, this.keywordsByLocale, this.reverseKeywordByLocale, req, res, next);
     }
 
     private processKeywords(keywords: {[keyword: string]: {[locale: string]: string}}) {

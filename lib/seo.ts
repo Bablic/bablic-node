@@ -11,7 +11,7 @@ import * as UrlParser from 'url';
 
 const debug = Debug('bablic:seo');
 
-import {ExtendedRequest, ExtendedResponse, Middleware, getLink, KeywordMapper, SiteMeta} from "./common";
+import {ExtendedRequest, ExtendedResponse, Middleware, getLink, KeywordMapper, SiteMeta, LastModifiedByLocale} from "./common";
 import {ServerResponse} from "http";
 import {Stats} from "fs";
 import {RequestResponse} from "request";
@@ -82,7 +82,7 @@ export class SeoMiddleware{
     };
 
     middleware(){
-        return (meta:SiteMeta, keywordsByLocale: KeywordMapper, reverseKeywordByLocale: KeywordMapper, req: ExtendedRequest, res: ExtendedResponse, next: () => void) => {
+        return (meta:SiteMeta,lastModified:LastModifiedByLocale, keywordsByLocale: KeywordMapper, reverseKeywordByLocale: KeywordMapper, req: ExtendedRequest, res: ExtendedResponse, next: () => void) => {
 
             let replaceUrls = shouldReplaceUrls(req);
             if (!shouldHandle(req) && !replaceUrls) {
@@ -223,6 +223,22 @@ export class SeoMiddleware{
                     res.setHeader('Content-Language', req.bablic.locale);
                     if (replaceUrls) {
                         restore_override();
+
+                        // detect that URL is of sitemap and is XML (res content type).If XML, then try to parse XML. And go over all
+                        if (/sitemap/i.test(req.url) && res.getHeader('content-type').indexOf('text/xml') > -1){
+
+                            // getting the first occurrence of lastmod
+                            let result = original_html.match(new RegExp("<lastmod>(.*?)</lastmod>"))[1];
+
+                            // check if the last modified locale is bigger than the site map lastmod
+                            let siteMapDate = new Date(result);
+                            if (siteMapDate < new Date(lastModified[req.bablic.locale])) {
+                                // replace all lastmod
+                                original_html = original_html.replace(new RegExp("<lastmod>(.*?)</lastmod>", 'g'), "<lastmod>" + new Date(lastModified[req.bablic.locale]).toISOString() + "</lastmod>")
+                            }
+                        }
+
+
                         html = original_html.replace(detect_url, url => {
                             if (ignore_not_html_or_xml.test(url))
                                 return url;

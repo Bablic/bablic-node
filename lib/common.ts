@@ -111,6 +111,11 @@ export interface SiteMeta{
     mountSubs: string[];
 }
 
+
+export interface LastModifiedByLocale {
+    [locale: string]: Date
+}
+
 export interface BablicLinkOptions {
     subDir?: boolean;
     subDirBase?: string;
