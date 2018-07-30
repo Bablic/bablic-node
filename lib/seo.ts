@@ -81,6 +81,21 @@ export class SeoMiddleware{
         });
     };
 
+    readHeaderAsString(res: ExtendedResponse, headerName: string): string {
+        let value = res.getHeader(headerName);
+        if (!value)
+            return "";
+        if (Array.isArray(value)) {
+            value = value[0];
+        }
+        if (typeof(value) !== "string") {
+            return value + "";
+        } else {
+            return value;
+        }
+
+    }
+
     middleware(){
         return (meta:SiteMeta,lastModified:LastModifiedByLocale, keywordsByLocale: KeywordMapper, reverseKeywordByLocale: KeywordMapper, req: ExtendedRequest, res: ExtendedResponse, next: () => void) => {
 
@@ -162,12 +177,11 @@ export class SeoMiddleware{
                     if (head_checked)
                         return;
 
-                    is_html = false;
-                    if (typeof(res.getHeader('content-type')) !== 'undefined')
-                        is_html = ((<string>res.getHeader('content-type')).indexOf('text/html') > -1) || replaceUrls;
+                    const ct = this.readHeaderAsString(res, 'content-type');
+                    is_html = ct.indexOf('text/html') > -1 || replaceUrls;
 
                     if (!is_html) {
-                        debug('not html', res.getHeader('content-type'));
+                        debug('not html', ct);
                         restore_override();
                     }
                     if (res.statusCode < 200 || res.statusCode >= 300) {
@@ -225,17 +239,19 @@ export class SeoMiddleware{
                         restore_override();
 
                         // detect that URL is of sitemap and is XML (res content type).If XML, then try to parse XML. And go over all
-                        if (/sitemap/i.test(req.url) && res.getHeader('content-type').indexOf('text/xml') > -1){
+                        if (/sitemap/i.test(req.url) &&
+                            self.readHeaderAsString(res, 'content-type').indexOf('text/xml') > -1 &&
+                            lastModified[req.bablic.locale]){
 
-                            // getting the first occurrence of lastmod
-                            let result = original_html.match(new RegExp("<lastmod>(.*?)</lastmod>"))[1];
-
-                            // check if the last modified locale is bigger than the site map lastmod
-                            let siteMapDate = new Date(result);
-                            if (siteMapDate < new Date(lastModified[req.bablic.locale])) {
-                                // replace all lastmod
-                                original_html = original_html.replace(new RegExp("<lastmod>(.*?)</lastmod>", 'g'), "<lastmod>" + new Date(lastModified[req.bablic.locale]).toISOString() + "</lastmod>")
-                            }
+                            const bablicDate = new Date(lastModified[req.bablic.locale]);
+                            original_html = original_html.replace(new RegExp("<lastmod>(.*?)</lastmod>", "g"), (captureAll, dateCapture) => {
+                                let siteMapDate = new Date(dateCapture);
+                                if (siteMapDate < bablicDate) {
+                                    return "<lastmod>" + bablicDate.toISOString() + "</lastmod>";
+                                } else {
+                                    return captureAll;
+                                }
+                            });
                         }
 
 

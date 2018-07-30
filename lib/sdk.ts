@@ -166,9 +166,10 @@ export class BablicMiddleware {
         });
     }
     public saveSiteMeta(data: SiteData) {
-        let {snippet, meta} = data;
+        let {snippet, meta, lastModified} = data;
         this.snippet = snippet;
         this.meta = meta;
+        this.lastModified = lastModified;
         this.processKeywords(data.keywords);
         this.LOCALE_REGEX = null;
         data.id = this.options.siteId;
