@@ -14,8 +14,6 @@ app.use(create({
    siteId: '[your site id]',
    rootUrl: 'http://[root url of your site]',
    subDir: true, // if you want to use sub dir for languages like /es/ /fr/
-   seo: {
-      defaultCache: ["http://[url of something you know you need caching to"]
    }));
    
 app.get('/',function(req,res) { 
@@ -32,8 +30,6 @@ app.use(create({
    siteId: '[your site id]',
    rootUrl: 'http://[root url of your site]',
    subDir: true, // if you want to use sub dir for languages like /es/ /fr/
-   seo: {
-      defaultCache: ["http://[url of something you know you need caching to"]
    }));
 ```
 
