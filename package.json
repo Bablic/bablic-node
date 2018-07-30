@@ -6,6 +6,7 @@
     "type": "git",
     "url": "git://github.com/Bablic/bablic-node.git"
   },
+  "license": "GPL v2",
   "keywords": [
     "bablic",
     "seo",
