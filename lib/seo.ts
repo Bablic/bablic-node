@@ -17,6 +17,7 @@ import {ExtendedRequest, ExtendedResponse, Middleware, getLink, KeywordMapper, S
 import {ServerResponse} from "http";
 import {Stats} from "fs";
 import {RequestResponse} from "request";
+import _ = require("lodash");
 
 export interface SeoOptions {
     useCache?:boolean;
