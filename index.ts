@@ -5,7 +5,7 @@ import {IncomingMessage, ServerResponse} from "http";
 
 const createMiddleware = (options: BablicOptions): Middleware => {
     const middleware = new BablicSDK(options);
-    return (req, res, next) => middleware.handle(req, res, next);
+    return middleware.handle(req, res, next);
 };
 
 export {BablicSDK, BablicOptions} from "./lib/sdk";

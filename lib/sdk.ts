@@ -8,7 +8,10 @@ import * as Debug from "debug";
 import * as url_parser from "url";
 
 import {SeoMiddleware, SeoOptions} from "./seo";
-import {ExtendedRequest, ExtendedResponse, getLocaleByURL, getLink, SiteMeta, KeywordMapper,LastModifiedByLocale} from "./common";
+import {
+    ExtendedRequest, ExtendedResponse, getLocaleByURL, getLink, SiteMeta, KeywordMapper, LastModifiedByLocale,
+    Middleware
+} from "./common";
 import {IncomingMessage, ServerResponse} from "http";
 
 const debug = Debug("bablic:seo");
@@ -95,6 +98,7 @@ export class BablicSDK {
     private keywordsByLocale: KeywordMapper = null;
     private reverseKeywordByLocale: KeywordMapper = null;
     private seoHandler: SeoMiddleware;
+    public handle: Middleware = (req, res, next) => this.handler(req, res, next);
     constructor(options: BablicOptions) {
         let generalOptions = options as any;
         for (let key in BackwardCompOptions) {
@@ -302,7 +306,7 @@ export class BablicSDK {
         }
     }
 
-    public handle(_req: IncomingMessage, _res: ServerResponse, next: () => void) {
+    private handler(_req: IncomingMessage, _res: ServerResponse, next: () => void) {
         const req = _req as ExtendedRequest;
         const res = _res as ExtendedResponse;
         if (!req.originalUrl) {
