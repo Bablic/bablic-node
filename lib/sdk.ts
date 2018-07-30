@@ -262,6 +262,31 @@ export class BablicMiddleware {
             .valueOf() as string[];
         return tags.join("");
     }
+    private generateOriginalPath(url: string, locale: string): string {
+        let urlParts = url.split("?");
+        let pathname = urlParts[0];
+        let reversed = this.reverseKeywordByLocale[locale];
+        let original = pathname.split("/").map((p) => reversed[p] || p).join("/");
+        if (original != pathname) {
+            urlParts[0] = original;
+            return urlParts.join("?");
+        } else {
+            return null;
+        }
+    }
+    private generateTranslatedPath(url: string, locale: string): string {
+        let urlParts = url.split("?");
+        let pathname = urlParts[0];
+        let proper = this.keywordsByLocale[locale];
+        let translated = pathname.split("/").map((p) => proper[p] || p).join("/");
+        if (translated != pathname) {
+            urlParts[0] = translated;
+            return urlParts.join("?");
+        } else {
+            return null;
+        }
+    }
+
     public handle(req: ExtendedRequest, res: ExtendedResponse, next: () => void) {
         if (!req.originalUrl) {
             req.originalUrl = req.url;
@@ -302,23 +327,21 @@ export class BablicMiddleware {
 
         if (this.options.subDir && this.LOCALE_REGEX) {
             req.url = req.url.replace(this.LOCALE_REGEX, "");
+            req.originalUrl = req.originalUrl.replace(this.LOCALE_REGEX, "");
             _snippet = `<script type="text/javascript">var bablic=bablic||{};bablic.localeURL="subdir";bablic.subDirBase="${this.options.subDirBase}";bablic.subDirOptional=${!!this.options.subDirOptional};</script>` + _snippet;
         }
 
         if (this.reverseKeywordByLocale && this.reverseKeywordByLocale[locale]) {
-            let urlParts = req.url.split("?");
-            let pathname = urlParts[0];
-            let reversed = this.reverseKeywordByLocale[locale];
-            let proper = this.keywordsByLocale[locale];
-            let original = pathname.split("/").map((p) => reversed[p] || p).join("/");
-            if (original != pathname) {
-                urlParts[0] = original;
-                req.url = urlParts.join("?");
+            let original = this.generateOriginalPath(req.url, locale);
+            // build original URL, so server will return proper content
+            if (original) {
+                req.url = original;
+                req.originalUrl = this.generateOriginalPath(req.originalUrl, locale) || req.originalUrl;
             } else {
-                let translated = pathname.split("/").map((p) => proper[p] || p).join("/");
-                if (translated != pathname) {
-                    urlParts[0] = translated;
-                    res.writeHead(301, {location: urlParts.join("?")});
+                // check to see if there is a translated URL, if so, it should be redirected to it
+                let translated = this.generateTranslatedPath(req.originalUrl, locale);
+                if (translated) {
+                    res.writeHead(301, {location: translated});
                     return res.end();
                 }
 

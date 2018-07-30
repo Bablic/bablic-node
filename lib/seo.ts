@@ -30,29 +30,8 @@ export interface SeoSubDirOptions {
 }
 
 export class SeoMiddleware{
-    constructor(private siteId: string, private options: SeoOptions, private subDirOptions: SeoSubDirOptions){
-        if (options.defaultCache) {
-            setTimeout(() => {
-                debug('starting preloads');
-                return this.preload();
-            }, 15000);
-        }
-
-    }
-    preload(): void {
-        async.eachSeries(this.options.defaultCache, (url, cbk) => {
-            debug('check cache for ', url);
-            this.getHtml(url, null, (error:Error, data) => {
-                if ((error != null) || data === void 0) {
-                    console.error("[Bablic SDK] Error: url " + url + " failed preloading", error);
-                } else {
-                    debug("[Bablic SDK] - Preload " + url + " complete, size: " + data.length);
-                }
-                return cbk();
-            });
-        });
-    }
-    getHtml(url: string, html: string, cbk:(e:Error, html?: string)=> void): void {
+    constructor(private siteId: string, private options: SeoOptions, private subDirOptions: SeoSubDirOptions){}
+    getHtml(url: string, locale: string, html?: string): Promise<string> {
         debug('getting from bablic', url, 'html:', !!html );
         let ld = '';
         if(this.subDirOptions.subDir) {
@@ -62,25 +41,27 @@ export class SeoMiddleware{
             if(this.subDirOptions.subDirOptional)
                 ld += '&sdo=true';
         }
-        request({
-            url: SEO_ROOT + "/api/engine/seo?site=" + this.siteId + "&url=" + (encodeURIComponent(url)) + ld,
-            method: 'POST',
-            json: {
-                html: html
-            }
-        }, (error:any, response:RequestResponse, body: any) => {
-            if (error)
-                return cbk(error);
+        return new Promise<string>((resolve, reject) => {
+            request({
+                url: SEO_ROOT + "?site=" + this.siteId + "&el=" + locale  + "&url=" + (encodeURIComponent(url)) + ld,
+                method: 'POST',
+                json: {
+                    html: html
+                }
+            }, (error:any, response:RequestResponse, body: any) => {
+                if (error)
+                    return reject(error);
 
-            if (response.statusCode < 200 || response.statusCode >= 300)
-                return cbk(new Error("Status-" + response.statusCode));
+                if (response.statusCode < 200 || response.statusCode >= 300)
+                    return reject(new Error("Status-" + response.statusCode));
 
-            if (body == null)
-                return cbk(new Error('empty response'));
+                if (body == null)
+                    return reject(new Error('empty response'));
 
-            debug('received translated html', response.statusCode);
-            cbk(null, body);
-            fs.writeFile(fullPathFromUrl(url), body, error => error && console.error('Error saving to cache', error));
+                debug('received translated html', response.statusCode);
+                resolve(body);
+                fs.writeFile(fullPathFromUrl(url), body, error => error && console.error('Error saving to cache', error));
+            });
         });
     }
     getFromCache(url: string, skip: boolean, callback:(e?:Error, html?: string, isValid?: boolean) => void) {
@@ -260,21 +241,21 @@ export class SeoMiddleware{
                         res.write(html, cb);
                         return res.end();
                     }
-                    self.getHtml(my_url, original_html, (error:Error, data:string) => {
+                    self.getHtml(my_url, req.bablic.locale, original_html).then((data) => {
                         if (cache_only)
                             return;
-
                         restore_override();
-                        if (error) {
-                            console.error('[Bablic SDK] Error:', error);
-                            debug('flushing original');
-                            res.write(original_html, cb);
-                            res.end();
-                            return;
-                        }
                         debug('flushing translated');
                         res.setHeader('Content-Length', Buffer.byteLength(data));
                         res.write(data, cb);
+                        res.end();
+                    }, (error) => {
+                        if (cache_only)
+                            return;
+                        restore_override();
+                        console.error('[Bablic SDK] Error:', error);
+                        debug('flushing original');
+                        res.write(original_html, cb);
                         res.end();
                     });
                 };
@@ -289,7 +270,14 @@ const ignore_not_html_or_xml = /\.(js|css|jpg|jpeg|png|mp3|avi|mpeg|bmp|wav|pdf|
 
 const detect_url = /(\b(https?|ftp|file):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|])/ig;
 
-const SEO_ROOT = 'http://seo.bablic.com';
+let SEO_ROOT = 'http://seo.bablic.com/api/engine/seo';
+
+export function setRenderServer(url: string) {
+    if (!url) {
+        throw new Error("Must be a valid URL");
+    }
+    SEO_ROOT = url;
+}
 
 function hash(data){
     return crypto.createHash('md5').update(data).digest('hex');

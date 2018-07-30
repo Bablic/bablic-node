@@ -10,5 +10,6 @@ const BablicConstructor = (options: BablicOptions): Middleware => {
 
 export {BablicMiddleware, BablicOptions} from "./lib/sdk";
 export {Middleware, ExtendedRequest, ExtendedResponse} from "./lib/common";
+export {setRenderServer} from "./lib/seo";
 export const create = BablicConstructor;
 
