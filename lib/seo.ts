@@ -265,12 +265,26 @@ export class SeoMiddleware{
                             });
                         }
 
+                        const locale = req.bablic.locale;
+                        const currentHost = req.headers.host as string;
+                        let originalDomains: string[] = [currentHost];
+                        if(alt_host)
+                            originalDomains.push(alt_host);
+                        if (meta.localeDetection === "custom" && meta.customUrls && meta.customUrls[locale]) {
+                            if(currentHost === meta.customUrls[locale]) {
+                                let supposeOriginDomain = meta.customUrls[meta.original];
+                                if (supposeOriginDomain) {
+                                    originalDomains.push(supposeOriginDomain);
+                                }
+                            }
+                        }
 
                         html = original_html.replace(detect_url, url => {
                             if (ignore_not_html_or_xml.test(url))
                                 return url;
-                            if (url.indexOf(<string>req.headers.host) === -1 && (!alt_host || url.indexOf(alt_host) === -1))
+                            if (_.every(originalDomains, (domain) => !url.includes(domain))) {
                                 return url;
+                            }
 
                             let parsed = UrlParser.parse(url);
                             // translate URLs in sitemaps and such
