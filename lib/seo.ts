@@ -68,15 +68,15 @@ export class SeoMiddleware{
 
                 debug('received translated html', response.statusCode);
                 resolve(body);
-                fs.writeFile(fullPathFromUrl(url, this.options.cacheDir), body, error => error && console.error('Error saving to cache', error));
+                fs.writeFile(fullPathFromUrl(url, locale, this.options.cacheDir), body, error => error && console.error('Error saving to cache', error));
             });
         });
     }
-    getFromCache(url: string, skip: boolean, callback:(e?:Error, html?: string, isValid?: boolean) => void) {
+    getFromCache(url: string, locale: string, skip: boolean, callback:(e?:Error, html?: string, isValid?: boolean) => void) {
         if (!this.options.useCache || skip)
             return callback();
 
-        let file_path = fullPathFromUrl(url, this.options.cacheDir);
+        let file_path = fullPathFromUrl(url, locale, this.options.cacheDir);
         fs.stat(file_path, (error:NodeJS.ErrnoException, file_stats: Stats) => {
             if (error)
                 return callback(error);
@@ -126,7 +126,7 @@ export class SeoMiddleware{
                 my_url = "http://" + this.options.altHost + req.originalUrl;
 
 
-            this.getFromCache(my_url, replaceUrls, (e, html, isValid) => {
+            this.getFromCache(my_url, req.bablic.locale, replaceUrls, (e, html, isValid) => {
                 let cache_only = false;
                 if (html) {
                     debug('flushing from cache');
@@ -325,8 +325,8 @@ export function setRenderServer(url: string) {
 function hash(data){
     return crypto.createHash('md5').update(data).digest('hex');
 }
-function fullPathFromUrl(url, cacheDir) {
-    return cacheDir + "/" + hash(url);
+function fullPathFromUrl(url: string, locale: string, cacheDir: string) {
+    return cacheDir + "/" + locale + "/" + hash(url);
 }
 function cacheValid(file_stats) {
     let last_modified = moment(file_stats.mtime.getTime());
