@@ -3,7 +3,7 @@
 import * as async from 'async';
 import * as crypto from 'crypto';
 import * as fs from 'fs';
-import {emptyDir, ensureDirSync} from "fs-extra";
+import {emptyDir, ensureDir, rmdir, writeFile} from "fs-extra";
 import * as moment from 'moment';
 import * as OS from 'os';
 import * as request from 'request';
@@ -34,10 +34,16 @@ export interface SeoSubDirOptions {
 }
 
 export class SeoMiddleware{
-    constructor(private siteId: string, private options: SeoOptions, private subDirOptions: SeoSubDirOptions){
-        if(options.useCache) {
-            debug("ensure cache dir exists");
-            ensureDirSync(options.cacheDir);
+    constructor(private siteId: string, private options: SeoOptions, private subDirOptions: SeoSubDirOptions){}
+    async writeToCache(url: string, locale: string, translated: string): Promise<void> {
+        let cachePath = fullPathFromUrl(url, locale, this.options.cacheDir);
+        try {
+            await writeFile(cachePath, translated);
+        } catch (e) {
+            const cacheDir = getCacheDir(url, locale);
+            debug("create cache dir", cacheDir);
+            await ensureDir(cacheDir);
+            await writeFile(cachePath, translated);
         }
     }
     getHtml(url: string, locale: string, html?: string): Promise<string> {
@@ -69,7 +75,9 @@ export class SeoMiddleware{
 
                 debug('received translated html', response.statusCode);
                 resolve(body);
-                fs.writeFile(fullPathFromUrl(url, locale, this.options.cacheDir), body, error => error && console.error('Error saving to cache', error));
+                this.writeToCache(url, locale, body).catch((e) => {
+                    debug("error writing to cache", e);
+                });
             });
         });
     }
@@ -106,7 +114,7 @@ export class SeoMiddleware{
     }
     async purgeCache(): Promise<void> {
         debug("purge cache", this.options.cacheDir);
-        await emptyDir(this.options.cacheDir);
+        await rmdir(this.options.cacheDir);
         debug("purge done");
     }
     middleware(){
@@ -342,6 +350,9 @@ function hash(data){
 }
 function fullPathFromUrl(url: string, locale: string, cacheDir: string) {
     return cacheDir + "/" + locale + "/" + hash(url);
+}
+function getCacheDir(locale: string, cacheDir: string) {
+    return cacheDir + "/" + locale;
 }
 function cacheValid(file_stats) {
     let last_modified = moment(file_stats.mtime.getTime());
