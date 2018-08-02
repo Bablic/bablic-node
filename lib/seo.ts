@@ -40,9 +40,10 @@ export class SeoMiddleware{
         try {
             await writeFile(cachePath, translated);
         } catch (e) {
-            const cacheDir = getCacheDir(url, locale);
+            const cacheDir = getCacheDir(locale, this.options.cacheDir);
             debug("create cache dir", cacheDir);
             await ensureDir(cacheDir);
+            debug("created");
             await writeFile(cachePath, translated);
         }
     }
