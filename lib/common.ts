@@ -7,6 +7,8 @@ const SUB_DOMAIN_REGEX = /^(?:www\.)?(\w\w(?:_\w\w)?)\./i;
 
 export interface ExtendedRequest extends IncomingMessage {
     originalUrl?: string;
+    // set this field if you want to force specific locale for Bablic
+    forceLocale?: string;
     bablic?:{
         locale: string;
         proxied?: boolean;

@@ -333,7 +333,7 @@ export class SeoMiddleware{
 }
 
 
-const ignore_not_html_or_xml = /\.(js|css|jpg|jpeg|png|mp3|avi|mpeg|bmp|wav|pdf|doc|docx|xlsx|xls|json|kml|svg|eot|woff|woff2)/i;
+const ignore_not_html_or_xml = /\.(js|css|jpg|jpeg|png|ico|mp4|wmv|ogg|mp3|avi|mpeg|bmp|wav|pdf|doc|docx|xlsx|xls|json|kml|svg|eot|woff|woff2)/i;
 
 const detect_url = /(\b(https?|ftp|file):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|])/ig;
 
