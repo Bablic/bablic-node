@@ -13,7 +13,10 @@ import * as mkdirp from 'mkdirp';
 
 const debug = Debug('bablic:seo');
 
-import {ExtendedRequest, ExtendedResponse, Middleware, getLink, KeywordMapper, SiteMeta, LastModifiedByLocale} from "./common";
+import {
+    ExtendedRequest, ExtendedResponse, Middleware, getLink, KeywordMapper, SiteMeta, LastModifiedByLocale,
+    BablicLinkOptions
+} from "./common";
 import {ServerResponse} from "http";
 import {Stats} from "fs";
 import {RequestResponse} from "request";
@@ -34,7 +37,10 @@ export interface SeoSubDirOptions {
 }
 
 export class SeoMiddleware{
-    constructor(private siteId: string, private options: SeoOptions, private subDirOptions: SeoSubDirOptions){}
+    private subDirOptions: BablicLinkOptions;
+    constructor(private siteId: string, private options: SeoOptions, subDirOptions: SeoSubDirOptions){
+        this.subDirOptions = Object.assign({returnFull: true}, subDirOptions);
+    }
     async writeToCache(url: string, locale: string, translated: string): Promise<void> {
         let cachePath = fullPathFromUrl(url, locale, this.options.cacheDir);
         try {
@@ -302,7 +308,7 @@ export class SeoMiddleware{
                                 let keywords = keywordsByLocale[req.bablic.locale];
                                 parsed.pathname = parsed.pathname.split('/').map(part => keywords[part] || part).join('/');
                             }
-                            return getLink(req.bablic.locale, parsed, meta);
+                            return getLink(req.bablic.locale, parsed, meta, this.subDirOptions);
                         });
                         res.setHeader('Content-Length', Buffer.byteLength(html));
                         res.write(html, cb);
@@ -320,7 +326,7 @@ export class SeoMiddleware{
                         if (cache_only)
                             return;
                         restore_override();
-                        console.error('[Bablic SDK] Error:', error);
+                        console.error('[Bablic SDK] Error:', my_url, error);
                         debug('flushing original');
                         res.write(original_html, cb);
                         res.end();
