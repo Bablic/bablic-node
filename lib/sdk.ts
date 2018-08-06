@@ -26,6 +26,7 @@ export interface BablicOptions {
     siteId: string;
     rootUrl?: string;
     locale?: string;
+    forceLocale?: string;
     subDir?: boolean;
     subDirBase?: string;
     subDirOptional?: boolean;
@@ -337,7 +338,8 @@ export class BablicSDK {
             return next();
         }
 
-        let locale = this.getLocale(req);
+
+        let locale = req.forceLocale || this.options.forceLocale || this.getLocale(req);
 
         req.bablic = {
             locale,
