@@ -308,7 +308,7 @@ export class SeoMiddleware{
                                 let keywords = keywordsByLocale[req.bablic.locale];
                                 parsed.pathname = parsed.pathname.split('/').map(part => keywords[part] || part).join('/');
                             }
-                            return getLink(req.bablic.locale, parsed, meta, this.subDirOptions);
+                            return getLink(req.bablic.locale, parsed, meta, self.subDirOptions);
                         });
                         res.setHeader('Content-Length', Buffer.byteLength(html));
                         res.write(html, cb);
