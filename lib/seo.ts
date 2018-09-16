@@ -69,7 +69,8 @@ export class SeoMiddleware{
                 method: 'POST',
                 json: {
                     html: html
-                }
+                },
+                timeout: 20000,
             }, (error:any, response:RequestResponse, body: any) => {
                 if (error)
                     return reject(error);

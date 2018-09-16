@@ -285,10 +285,13 @@ export class BablicSDK {
     private generateOriginalPath(url: string, locale: string): string {
         let urlParts = url.split("?");
         let pathname = urlParts[0];
+        let pathParts = pathname.split('.');
+        let ext = pathParts.length > 1 ? '.' + pathParts[pathParts.length - 1] : '';
+        let pathNoExt = pathParts.length > 1 ? pathParts.slice(0, pathParts.length - 1).join('.') : pathname;
         let reversed = this.reverseKeywordByLocale[locale];
-        let original = pathname.split("/").map((p) => reversed[p] || p).join("/");
-        if (original != pathname) {
-            urlParts[0] = original;
+        let original = pathNoExt.split("/").map((p) => reversed[p] || p).join("/");
+        if (original != pathNoExt) {
+            urlParts[0] = original + ext;
             return urlParts.join("?");
         } else {
             return null;
@@ -297,10 +300,13 @@ export class BablicSDK {
     private generateTranslatedPath(url: string, locale: string): string {
         let urlParts = url.split("?");
         let pathname = urlParts[0];
+        let pathParts = pathname.split('.');
+        let ext = pathParts.length > 1 ? '.' + pathParts[pathParts.length - 1] : '';
+        let pathNoExt = pathParts.length > 1 ? pathParts.slice(0, pathParts.length - 1).join('.') : pathname;
         let proper = this.keywordsByLocale[locale];
-        let translated = pathname.split("/").map((p) => proper[p] || p).join("/");
-        if (translated != pathname) {
-            urlParts[0] = translated;
+        let translated = pathNoExt.split("/").map((p) => proper[p] || p).join("/");
+        if (translated != pathNoExt) {
+            urlParts[0] = translated + ext;
             return urlParts.join("?");
         } else {
             return null;
