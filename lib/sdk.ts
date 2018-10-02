@@ -354,6 +354,10 @@ export class BablicSDK {
 
         let _snippet = this.snippet;
 
+        if (this.meta.original == locale) {
+            _snippet = _snippet.replace("<script", "<script async");
+        }
+
         if (this.options.subDir && this.LOCALE_REGEX) {
             req.url = req.url.replace(this.LOCALE_REGEX, "");
             req.originalUrl = req.originalUrl.replace(this.LOCALE_REGEX, "");
@@ -375,10 +379,6 @@ export class BablicSDK {
                 }
 
             }
-        }
-
-        if (this.meta.original == locale) {
-            _snippet = _snippet.replace("<script", "<script async");
         }
 
         extendResponseLocals(res, {
