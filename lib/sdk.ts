@@ -266,7 +266,13 @@ export class BablicSDK {
     }
     public getLink(locale: string, url: string): string {
         let parsed = url_parser.parse(url);
-        return getLink(locale, parsed, this.meta, {returnFull: true});
+        return getLink(locale, parsed, this.meta, {
+            subDir: this.options.subDir,
+            subDirBase: this.options.subDirBase,
+            subDirOptional: this.options.subDirOptional,
+            folders: this.options.folders,
+            returnFull: true,
+        });
     }
     public altTags(url: string, locale: string) {
         let locales = this.meta.localeKeys || [];
