@@ -266,7 +266,7 @@ export class BablicSDK {
     }
     public getLink(locale: string, url: string): string {
         let parsed = url_parser.parse(url);
-        return getLink(locale, parsed, this.meta, this.options);
+        return getLink(locale, parsed, this.meta, {returnFull: true});
     }
     public altTags(url: string, locale: string) {
         let locales = this.meta.localeKeys || [];
@@ -361,7 +361,7 @@ export class BablicSDK {
         if (this.options.subDir && this.LOCALE_REGEX) {
             req.url = req.url.replace(this.LOCALE_REGEX, "");
             req.originalUrl = req.originalUrl.replace(this.LOCALE_REGEX, "");
-            _snippet = `<script type="text/javascript">var bablic=bablic||{};bablic.localeURL="subdir";bablic.subDirBase="${this.options.subDirBase}";bablic.subDirOptional=${!!this.options.subDirOptional};</script>` + _snippet;
+            _snippet = `<script>var bablic=bablic||{};bablic.localeURL="subdir";bablic.subDirBase="${this.options.subDirBase}";bablic.subDirOptional=${!!this.options.subDirOptional};</script>` + _snippet;
         }
 
         if (this.reverseKeywordByLocale && this.reverseKeywordByLocale[locale]) {
