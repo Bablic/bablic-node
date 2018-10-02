@@ -134,7 +134,7 @@ export function getLink(locale: string, parsed: UrlParser.Url, meta: SiteMeta, o
     let search = parsed.search || '';
     let hash = parsed.hash || '';
 
-    let returnFull = options.returnFull;
+    let returnFull = options.returnFull && !!hostname;
     let localeDetection = meta.localeDetection;
     let original = meta.original;
     if(options.subDir)

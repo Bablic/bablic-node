@@ -381,12 +381,18 @@ export class BablicSDK {
             }
         }
 
+        let fullUrl = req.originalUrl;
+        if (this.options.rootUrl) {
+            const rootParsed = url_parser.parse(this.options.rootUrl);
+            fullUrl = rootParsed.protocol + '//' + rootParsed.hostname + req.originalUrl;
+        }
+
         extendResponseLocals(res, {
             bablic: {
                 locale,
                 snippet: _snippet,
                 snippetBottom: "",
-                snippetTop: "<!-- start Bablic Head -->" + this.altTags(req.originalUrl, locale) + _snippet + "<!-- start Bablic Head -->",
+                snippetTop: "<!-- start Bablic Head -->" + this.altTags(fullUrl, locale) + _snippet + "<!-- start Bablic Head -->",
             },
         });
 
