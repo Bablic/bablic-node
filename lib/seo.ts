@@ -12,6 +12,7 @@ import * as UrlParser from 'url';
 import * as mkdirp from 'mkdirp';
 
 const debug = Debug('bablic:seo');
+const zlib = require('zlib');
 
 import {
     ExtendedRequest, ExtendedResponse, Middleware, getLink, KeywordMapper, SiteMeta, LastModifiedByLocale,
@@ -44,6 +45,7 @@ export class SeoMiddleware{
     async writeToCache(url: string, locale: string, translated: string): Promise<void> {
         let cachePath = fullPathFromUrl(url, locale, this.options.cacheDir);
         try {
+
             await writeFile(cachePath, translated);
         } catch (e) {
             const cacheDir = getCacheDir(locale, this.options.cacheDir);
@@ -66,11 +68,15 @@ export class SeoMiddleware{
         return new Promise<string>((resolve, reject) => {
             request({
                 url: SEO_ROOT + "?site=" + this.siteId + "&el=" + locale  + "&url=" + (encodeURIComponent(url)) + ld,
+                headers:{
+                    "Accept-Encoding": "gzip,deflate"
+                },
                 method: 'POST',
                 json: {
                     html: html
                 },
                 timeout: 20000,
+                encoding:null,
             }, (error:any, response:RequestResponse, body: any) => {
                 if (error)
                     return reject(error);
@@ -83,13 +89,14 @@ export class SeoMiddleware{
 
                 debug('received translated html', response.statusCode);
                 resolve(body);
+
                 this.writeToCache(url, locale, body).catch((e) => {
                     debug("error writing to cache", e);
                 });
             });
         });
     }
-    getFromCache(url: string, locale: string, skip: boolean, callback:(e?:Error, html?: string, isValid?: boolean) => void) {
+    getFromCache(url: string, locale: string, skip: boolean, callback:(e?:Error, html?: Buffer | string, isValid?: boolean) => void) {
         if (!this.options.useCache || skip)
             return callback();
 
@@ -101,11 +108,21 @@ export class SeoMiddleware{
             fs.readFile(file_path, (error:NodeJS.ErrnoException, data: Buffer) => {
                 if (error)
                     return callback(error);
-                callback(error, data.toString('utf8'), cacheValid(file_stats));
+
+                callback(error, data, cacheValid(file_stats));
             });
         });
     };
-
+    isEncoded(buffer) {
+        try {
+            // every gzip content start with 0x1f8b 2 bytes
+            let firstByte = buffer[0];
+            let secondByte = buffer[1];
+            return (firstByte == 0x1f) && (secondByte == 0x8b)
+        } catch (err) {
+            return false;
+        }
+    }
     readHeaderAsString(res: ExtendedResponse, headerName: string): string {
         let value = res.getHeader(headerName);
         if (!value)
@@ -134,6 +151,9 @@ export class SeoMiddleware{
                 return next();
             }
 
+
+            let acceptGZIP = (req.headers['accept-encoding'] || '').indexOf('gzip') > -1;
+
             delete req.headers['accept-encoding'];
             req.bablic.proxied = true;
 
@@ -149,8 +169,24 @@ export class SeoMiddleware{
                     debug('flushing from cache');
                     res.setHeader('Content-Type', 'text/html; charset=utf-8');
                     res.setHeader('Content-Language', req.bablic.locale);
+
+                    const encoded = this.isEncoded(html);
+                    // if browser support gzip encoding
+                    if (acceptGZIP) {
+                        // adding gzip flag
+                        if (encoded) {
+                            res.setHeader('Content-Encoding', 'gzip');
+                        }
+                    }else{
+                        // if the content from cache is gzipped
+                        if (encoded) {
+                            html = zlib.gunzipSync(html);
+                        }
+                    }
+
                     res.write(html);
                     res.end();
+
                     if (isValid)
                         return;
                     cache_only = true;
@@ -315,9 +351,23 @@ export class SeoMiddleware{
                         res.write(html, cb);
                         return res.end();
                     }
+
+
                     self.getHtml(my_url, req.bablic.locale, original_html).then((data) => {
                         if (cache_only)
                             return;
+
+                        const isEncoded = this.isEncoded(data);
+                        // if browser doesnt support gzip encoding
+                        if (!acceptGZIP) {
+                            // if the content is gzipped
+                            if (isEncoded) {
+                                data = zlib.gunzipSync(data);
+                            }
+                        }else if (isEncoded) {
+                            res.setHeader('Content-Encoding', 'gzip');
+                        }
+
                         restore_override();
                         debug('flushing translated');
                         res.setHeader('Content-Length', Buffer.byteLength(data));
