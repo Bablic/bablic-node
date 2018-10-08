@@ -18,7 +18,7 @@ import {
     ExtendedRequest, ExtendedResponse, Middleware, getLink, KeywordMapper, SiteMeta, LastModifiedByLocale,
     BablicLinkOptions
 } from "./common";
-import {ServerResponse} from "http";
+import {OutgoingMessage, ServerResponse} from "http";
 import {Stats} from "fs";
 import {RequestResponse} from "request";
 import _ = require("lodash");
@@ -210,6 +210,16 @@ export class SeoMiddleware{
                 let _getHeader;
                 if (cache_only) {
                     _getHeader = res.getHeader;
+
+                    res.finished = false;
+                    Object.defineProperty(res,"headersSent",{
+                        get:()=>{
+                            return false;
+                        },
+                        configurable:true,
+                        enumerable:true,
+                    });
+
                     res.setHeader = (name, value) => headers[name.toLowerCase().trim()] = value;
                     res.removeHeader = name => headers[name.toLowerCase().trim()] = null;
                     res.getHeader = name => {
@@ -228,8 +238,12 @@ export class SeoMiddleware{
                     res.write = _write;
                     res.end = _end;
                     res.writeHead = _writeHead;
-                    if (cache_only)
+
+                    if (cache_only) {
                         _getHeader = null;
+                        const getter = Object.getOwnPropertyDescriptor(OutgoingMessage.prototype,"headersSent");
+                        Object.defineProperty(res,"headersSent",getter );
+                    }
 
                     _write = _end = _writeHead = null;
                 };
@@ -415,7 +429,7 @@ function getCacheDir(locale: string, cacheDir: string) {
 function cacheValid(file_stats) {
     let last_modified = moment(file_stats.mtime.getTime());
     let now = moment();
-    last_modified.add(30, 'minutes');
+    last_modified.add(1, 'days');
     return now.isBefore(last_modified);
 }
 
