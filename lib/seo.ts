@@ -371,7 +371,7 @@ export class SeoMiddleware{
                         if (cache_only)
                             return;
 
-                        const isEncoded = this.isEncoded(data);
+                        const isEncoded = self.isEncoded(data);
                         // if browser doesnt support gzip encoding
                         if (!acceptGZIP) {
                             // if the content is gzipped
