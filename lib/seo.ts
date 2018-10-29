@@ -437,7 +437,7 @@ const filename_tester = /\.(js|css|jpg|jpeg|png|mp3|avi|mpeg|bmp|wav|pdf|doc|xml
 function ignorable(req) {
     return filename_tester.test(req.url);
 }
-const google_tester = /bot|crawler|baiduspider|facebook|twitter|80legs|google|seo/i;
+const google_tester = /bot|crawler|yandex|bing|baidu|spider|facebook|twitter|80legs|google|seo/i;
 function isBot(req) {
     return google_tester.test(req.headers['user-agent']);
 }
