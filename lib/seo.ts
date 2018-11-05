@@ -56,6 +56,9 @@ export class SeoMiddleware{
         }
     }
     getHtml(url: string, locale: string, html?: string): Promise<string> {
+        if (!isRenderHealthy) {
+            return Promise.reject(new Error("Render is not health"));
+        }
         debug('getting from bablic', url, 'html:', !!html );
         let ld = '';
         if(this.subDirOptions.subDir) {
@@ -148,6 +151,11 @@ export class SeoMiddleware{
             let replaceUrls = shouldReplaceUrls(req);
             if (!shouldHandle(req) && !replaceUrls) {
                 debug('ignored', req.url);
+                return next();
+            }
+
+            if (!isRenderHealthy && !replaceUrls) {
+                debug('render not healthy, skipping');
                 return next();
             }
 
@@ -450,3 +458,32 @@ function shouldReplaceUrls(req) {
     return /sitemap|robots/i.test(req.url);
 }
 
+
+function renderHealthCheck(): Promise<boolean> {
+    return new Promise<boolean>((resolve, reject) => {
+        debug('render health check');
+        request({
+            url: SEO_ROOT,
+            headers:{
+                "Accept-Encoding": "gzip,deflate"
+            },
+            method: 'GET',
+            timeout: 10000,
+        }, (error:any) => {
+            if (error) {
+                debug('render is not healthy', error);
+                return resolve(false);
+            }
+            debug('render is healthy');
+            resolve(true);
+        });
+    });
+}
+
+let isRenderHealthy = true;
+
+setInterval(() => {
+    renderHealthCheck().then((health) => {
+        isRenderHealthy = health;
+    });
+}, 1000*60);
