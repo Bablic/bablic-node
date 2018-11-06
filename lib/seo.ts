@@ -369,7 +369,9 @@ export class SeoMiddleware{
                             }
                             return getLink(req.bablic.locale, parsed, meta, self.subDirOptions);
                         });
-                        res.setHeader('Content-Length', Buffer.byteLength(html));
+                        if (res.getHeader('Transfer-Encoding') !== 'chunked') {
+                            res.setHeader('Content-Length', Buffer.byteLength(html));
+                        }
                         res.write(html, cb);
                         return res.end();
                     }
@@ -392,7 +394,9 @@ export class SeoMiddleware{
 
                         restore_override();
                         debug('flushing translated');
-                        res.setHeader('Content-Length', Buffer.byteLength(data));
+                        if (res.getHeader('Transfer-Encoding') !== 'chunked') {
+                            res.setHeader('Content-Length', Buffer.byteLength(data));
+                        }
                         res.write(data, cb);
                         res.end();
                     }, (error) => {
