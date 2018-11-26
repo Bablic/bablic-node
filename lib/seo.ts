@@ -154,12 +154,6 @@ export class SeoMiddleware{
                 return next();
             }
 
-            if (!isRenderHealthy && !replaceUrls) {
-                debug('render not healthy, skipping');
-                return next();
-            }
-
-
             let acceptGZIP = (req.headers['accept-encoding'] || '').indexOf('gzip') > -1;
 
             delete req.headers['accept-encoding'];
@@ -199,6 +193,12 @@ export class SeoMiddleware{
                         return;
                     cache_only = true;
                 }
+
+                if (!isRenderHealthy && !replaceUrls) {
+                    debug('render not healthy, skipping');
+                    return next();
+                }
+
 
                 debug('overriding response');
                 let _end = res.end;
