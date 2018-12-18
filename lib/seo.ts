@@ -29,6 +29,7 @@ export interface SeoOptions {
     cacheDir?: string;
     test?:boolean;
     altHost?: string;
+    cacheDays?: number;
 }
 
 export interface SeoSubDirOptions {
@@ -112,7 +113,7 @@ export class SeoMiddleware{
                 if (error)
                     return callback(error);
 
-                callback(error, data, cacheValid(file_stats));
+                callback(error, data, cacheValid(file_stats, this.options.cacheDays || 1));
             });
         });
     };
@@ -438,10 +439,10 @@ function fullPathFromUrl(url: string, locale: string, cacheDir: string) {
 function getCacheDir(locale: string, cacheDir: string) {
     return cacheDir + "/" + locale;
 }
-function cacheValid(file_stats) {
+function cacheValid(file_stats: Stats, cacheDays: number) {
     let last_modified = moment(file_stats.mtime.getTime());
     let now = moment();
-    last_modified.add(1, 'days');
+    last_modified.add(cacheDays, 'days');
     return now.isBefore(last_modified);
 }
 
