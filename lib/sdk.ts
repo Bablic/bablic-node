@@ -166,7 +166,12 @@ export class BablicSDK {
             }
 
             try {
-                let data: SiteData = JSON.parse(body);
+                let data: SiteData;
+                if (typeof(body) === "string") {
+                    data = JSON.parse(body);
+                } else {
+                    data = body;
+                }
                 debug("data:", data);
                 this.saveSiteMeta(data);
                 cbk();
