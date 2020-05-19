@@ -259,22 +259,29 @@ export class SeoMiddleware{
 
 
                 let head_checked = false;
-                let is_html = null;
+                // should we process the response, or simply proxy it
+                // if replaceUrls is on, we need to process the response
+                let shouldProcess = replaceUrls;
                 let chunks = [];
                 let check_head = () => {
                     if (head_checked)
                         return;
 
                     const ct = this.readHeaderAsString(res, 'content-type');
-                    is_html = ct.indexOf('text/html') > -1 || replaceUrls;
+                    const isHtml = ct.indexOf('text/html') > -1;
+                    // if response is HTML
+                    if (isHtml) {
+                        // we should process it, and turn off replaceUrls (render will take care of URLs)
+                        replaceUrls = false;
+                        shouldProcess = true;
+                    }
 
-                    if (!is_html) {
+                    if (!shouldProcess) {
                         debug('not html', ct);
                         restore_override();
-                    }
-                    if (res.statusCode < 200 || res.statusCode >= 300) {
+                    } else if (res.statusCode < 200 || res.statusCode >= 300) {
                         debug('error response', res.statusCode);
-                        is_html = false;
+                        shouldProcess = false;
                         restore_override();
                     }
                     head_checked = true;
@@ -284,7 +291,7 @@ export class SeoMiddleware{
                 let justAnObject: any = <any>res;
                 res.write = function(chunk?: any, encoding?: any, cb?: any) {
                     check_head();
-                    if (!is_html) {
+                    if (!shouldProcess) {
                         if (cache_only)
                             return;
 
@@ -310,7 +317,7 @@ export class SeoMiddleware{
                     }
 
                     check_head();
-                    if (!is_html) {
+                    if (!shouldProcess) {
                         if (cache_only)
                             return;
                         debug('flush original');
@@ -389,7 +396,7 @@ export class SeoMiddleware{
                             if (isEncoded) {
                                 data = zlib.gunzipSync(data);
                             }
-                        }else if (isEncoded) {
+                        } else if (isEncoded) {
                             res.setHeader('Content-Encoding', 'gzip');
                         }
 
