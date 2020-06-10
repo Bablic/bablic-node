@@ -1,15 +1,12 @@
 
 
-import * as async from 'async';
 import * as crypto from 'crypto';
 import * as fs from 'fs';
-import {emptyDir, ensureDir, rmdir, writeFile} from "fs-extra";
+import {emptyDir, ensureDir, rmdir, writeFile, unlink, pathExists} from "fs-extra";
 import * as moment from 'moment';
-import * as OS from 'os';
 import * as request from 'request';
 import * as Debug from 'debug';
 import * as UrlParser from 'url';
-import * as mkdirp from 'mkdirp';
 
 const debug = Debug('bablic:seo');
 const zlib = require('zlib');
@@ -143,8 +140,27 @@ export class SeoMiddleware{
     }
     async purgeCache(): Promise<void> {
         debug("purge cache", this.options.cacheDir);
-        await rmdir(this.options.cacheDir);
-        debug("purge done");
+        try {
+            await rmdir(this.options.cacheDir);
+            debug("purge done");
+        } catch (e) {
+            debug('purge error', e);
+        }
+    }
+    async purgeByUrl(url: string, locale: string): Promise<void> {
+        debug("purge cache URL", this.options.cacheDir, url);
+        let cachePath = fullPathFromUrl(url, locale, this.options.cacheDir);
+        try {
+            if (await pathExists(cachePath)) {
+                debug('delete', cachePath);
+                await unlink(cachePath);
+                debug("purge url done");
+            } else {
+                debug("url not cached", cachePath);
+            }
+        } catch (e) {
+            debug('purge error', e);
+        }
     }
     middleware(){
         return (meta:SiteMeta,lastModified:LastModifiedByLocale, keywordsByLocale: KeywordMapper, reverseKeywordByLocale: KeywordMapper, req: ExtendedRequest, res: ExtendedResponse, next: () => void) => {

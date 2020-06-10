@@ -293,6 +293,11 @@ export class BablicSDK {
             return Promise.resolve();
         return this.seoHandler.purgeCache();
     }
+    public purgeByUrl(url: string, locale: string): Promise<void> {
+        if (!this.seoHandler)
+            return Promise.resolve();
+        return this.seoHandler.purgeByUrl(url, locale);
+    }
     private generateOriginalPath(url: string, locale: string): string {
         let urlParts = url.split("?");
         let pathname = urlParts[0];
