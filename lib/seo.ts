@@ -53,7 +53,7 @@ export class SeoMiddleware{
             await writeFile(cachePath, translated);
         }
     }
-    getHtml(url: string, locale: string, html?: string): Promise<string> {
+    getHtml(url: string, cacheKey: string, locale: string, html?: string): Promise<string> {
         if (!isRenderHealthy) {
             return Promise.reject(new Error("Render is not health"));
         }
@@ -91,7 +91,7 @@ export class SeoMiddleware{
                 debug('received translated html', response.statusCode);
                 resolve(body);
 
-                this.writeToCache(url, locale, body).catch((e) => {
+                this.writeToCache(cacheKey, locale, body).catch((e) => {
                     debug("error writing to cache", e);
                 });
             });
@@ -177,12 +177,13 @@ export class SeoMiddleware{
             req.bablic.proxied = true;
 
             let protocol = req.headers['x-forwarded-proto'] || 'http';
+            const cacheKey = req.originalUrl;
             let my_url = protocol + "://" + req.headers.host + req.originalUrl;
             if (this.options.altHost)
                 my_url = "http://" + this.options.altHost + req.originalUrl;
 
 
-            this.getFromCache(my_url, req.bablic.locale, replaceUrls, (e, html, isValid) => {
+            this.getFromCache(cacheKey, req.bablic.locale, replaceUrls, (e, html, isValid) => {
                 let cache_only = false;
                 if (html) {
                     debug('flushing from cache');
@@ -401,7 +402,7 @@ export class SeoMiddleware{
                     }
 
 
-                    self.getHtml(my_url, req.bablic.locale, original_html).then((data) => {
+                    self.getHtml(my_url, cacheKey, req.bablic.locale, original_html).then((data) => {
                         if (cache_only)
                             return;
 
