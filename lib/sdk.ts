@@ -386,14 +386,13 @@ export class BablicSDK {
             if (original) {
                 req.url = original;
                 req.originalUrl = this.generateOriginalPath(req.originalUrl, locale) || req.originalUrl;
-            } else {
+            } else if (req.method == "GET"){
                 // check to see if there is a translated URL, if so, it should be redirected to it
                 let translated = this.generateTranslatedPath(req.originalUrl, locale);
                 if (translated) {
                     res.writeHead(301, {location: translated});
                     return res.end();
                 }
-
             }
         }
 
