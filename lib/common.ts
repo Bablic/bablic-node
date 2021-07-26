@@ -40,7 +40,10 @@ function getLocaleFromFolder(folderLocale, locales) {
 }
 
 
-export function getLocaleByURL(parsedUrl, locale_detection, localeConfigs, cookieLocale, siteDefaultLocale, detectedLocale, isProxy, explicitLocale, subDirBase, folders, locales) {
+export function getLocaleByURL(parsedUrl, locale_detection, localeConfigs, cookieLocale, siteDefaultLocale, detectedLocale, isProxy, explicitLocale, subDirBase, folders, locales, handler) {
+    if (handler) {
+        return handler(parsedUrl, cookieLocale, siteDefaultLocale, detectedLocale) || siteDefaultLocale;
+    }
     switch (locale_detection) {
         case 'querystring':
             if (parsedUrl.query && typeof(parsedUrl.query) == 'object')
@@ -111,6 +114,8 @@ export interface SiteMeta{
     qsParams: string[],
     domain: string;
     mountSubs: string[];
+    getLocaleHandler: any;
+    rewriteUrlHandler: any;
 }
 
 
@@ -126,7 +131,7 @@ export interface BablicLinkOptions {
     folders?:{[locale:string]:string}
 }
 
-export function getLink(locale: string, parsed: UrlParser.Url, meta: SiteMeta, options?: BablicLinkOptions) {
+export function getLink(locale: string, parsed: UrlParser.Url, meta: SiteMeta, options?: BablicLinkOptions, rewriteUrlHandler?: any) {
     options = options || {};
     let protocol = parsed.protocol || '';
     let hostname = parsed.hostname;
@@ -137,6 +142,9 @@ export function getLink(locale: string, parsed: UrlParser.Url, meta: SiteMeta, o
     let returnFull = options.returnFull && !!hostname;
     let localeDetection = meta.localeDetection;
     let original = meta.original;
+    if (rewriteUrlHandler) {
+        return rewriteUrlHandler(parsed, locale);
+    }
     if(options.subDir)
         localeDetection = 'subdir';
     if(localeDetection == 'custom' && !(meta.customUrls && meta.customUrls[locale]))

@@ -400,7 +400,13 @@ export class SeoMiddleware{
                         res.write(html, cb);
                         return res.end();
                     }
-
+                    // handle empty html string
+                    if (!original_html) {
+                        restore_override();
+                        debug('empty html');
+                        res.end(cb);
+                        return;
+                    }
 
                     self.getHtml(my_url, cacheKey, req.bablic.locale, original_html).then((data) => {
                         if (cache_only)

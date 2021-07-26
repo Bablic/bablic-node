@@ -198,14 +198,17 @@ export class BablicSDK {
         return `${OS.tmpdir()}/snippet.${this.options.siteId}`;
     }
     public getLocale(req: ExtendedRequest): string {
-        if (req.headers["bablic-locale"]) {
-            return req.headers["bablic-locale"] as string;
+        if (req.headers["bablic-locale"] || req.headers["x-bablic-locale"]) {
+            return (req.headers["bablic-locale"] || req.headers["x-bablic-locale"]) as string;
         }
 
         let auto = this.meta.autoDetect;
         let defaultLocale = this.meta.default;
         let customUrls = this.meta.customUrls;
         let localeKeys = this.meta.localeKeys.slice();
+        let getLocaleHandler = this.meta.getLocaleHandler;
+        if (getLocaleHandler && typeof(getLocaleHandler) == "string")
+            getLocaleHandler = this.meta.getLocaleHandler = eval(getLocaleHandler);
         localeKeys.push(this.meta.original);
         let localeDetection = this.meta.localeDetection;
         if (this.options.subDir) {
@@ -223,15 +226,23 @@ export class BablicSDK {
             this.options.subDirBase,
             this.options.folders,
             localeKeys,
+            getLocaleHandler,
         );
 
+    }
+    private getSiteMetaInner(cbk?: (e?: Error) => void, retry: number = 0) {
+        this.getSiteMeta((e) => {
+            if (!e) return cbk(e);
+            if (retry >= 5) return cbk(e);
+            setTimeout(() => this.getSiteMetaInner(cbk, retry + 1), 1000);
+        });
     }
     public loadSiteMeta(cbk: (e?: Error) => void) {
         debug("loading meta from file");
         fs.readFile(this.snippetUrl(), (error, data) => {
             if (error) {
                 debug("no local file, getting from server");
-                return this.getSiteMeta(cbk);
+                return this.getSiteMetaInner(cbk);
             }
 
             debug("reading from temp file");
@@ -239,7 +250,7 @@ export class BablicSDK {
                 let object: SiteData = JSON.parse(data.toString("utf8"));
                 if (object.id != this.options.siteId || object.error) {
                     debug("not of this site id");
-                    return this.getSiteMeta(cbk);
+                    return this.getSiteMetaInner(cbk);
                 }
                 this.meta = object.meta;
                 this.snippet = object.snippet;
@@ -248,7 +259,7 @@ export class BablicSDK {
                 cbk();
             } catch (e) {
                 debug(e);
-                return this.getSiteMeta(cbk);
+                return this.getSiteMetaInner(cbk);
             }
 
             debug("checking snippet time");
@@ -261,7 +272,7 @@ export class BablicSDK {
                     return debug("snippet cache is good");
                 }
                 debug("refresh snippet");
-                this.getSiteMeta(() => debug("refreshed snippet"));
+                this.getSiteMetaInner(() => debug("refreshed snippet"));
             });
         });
     }
@@ -271,13 +282,16 @@ export class BablicSDK {
     }
     public getLink(locale: string, url: string): string {
         let parsed = url_parser.parse(url);
+        let handler = this.meta.rewriteUrlHandler;
+        if (handler && typeof(handler) == "string")
+            handler = this.meta.rewriteUrlHandler = eval(handler);
         return getLink(locale, parsed, this.meta, {
             subDir: this.options.subDir,
             subDirBase: this.options.subDirBase,
             subDirOptional: this.options.subDirOptional,
             folders: this.options.folders,
             returnFull: true,
-        });
+        }, handler);
     }
     public altTags(url: string, locale: string) {
         let locales = this.meta.localeKeys || [];
