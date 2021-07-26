@@ -70,7 +70,9 @@ describe('Hello', function() {
                 customUrls: null,
                 qsParams: [],
                 domain: 'eelslap.com/',
-                mountSubs: []
+                mountSubs: [],
+                getLocaleHandler: null,
+                rewriteUrlHandler: null,
             },
             snippet:`<script data-cfasync="false" type="text/javascript" data-bablic="5af975a0d747572ef39eb049" data-bablic-m="[0,'en','en',1,['es'],0,0,0,0,0,0,0,0,[],'eelslap.com/',[],['_v',2]]" src="//cdn2.bablic.com/js/bablic.3.9.js"></script>`,
             keywords:{
