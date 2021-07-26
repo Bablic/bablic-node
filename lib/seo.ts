@@ -382,7 +382,7 @@ export class SeoMiddleware{
                         html = original_html.replace(detect_url, url => {
                             if (ignore_not_html_or_xml.test(url))
                                 return url;
-                            if (!meta.rewriteUrlHandler || _.every(originalDomains, (domain) => !url.includes(domain))) {
+                            if (!meta.rewriteUrlHandler && _.every(originalDomains, (domain) => !url.includes(domain))) {
                                 return url;
                             }
 

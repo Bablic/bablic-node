@@ -92,6 +92,7 @@ export class BablicSDK {
     public meta: SiteMeta = null;
     public lastModified: LastModifiedByLocale = null;
     public snippet = "";
+    public snippetAsync = "";
     private options: BablicOptions;
     private LOCALE_REGEX: RegExp;
     private seoMiddleware: (meta: SiteMeta, lastModified:LastModifiedByLocale, keywordsByLocale: KeywordMapper, reverseKeywordByLocale: KeywordMapper, req: ExtendedRequest, res: ExtendedResponse, next: () => void) => void;
@@ -183,6 +184,7 @@ export class BablicSDK {
     public saveSiteMeta(data: SiteData) {
         let {snippet, meta, lastModified} = data;
         this.snippet = snippet;
+        this.snippetAsync = (snippet || "").replace("<script", "<script async");
         this.meta = meta;
         this.lastModified = lastModified;
         this.processKeywords(data.keywords);
@@ -428,13 +430,16 @@ export class BablicSDK {
             fullUrl = rootParsed.protocol + '//' + rootParsed.hostname + req.originalUrl;
         }
 
+        const localObj = {
+            locale,
+            snippet: this.meta.original == locale ? this.snippetAsync : this.snippet,
+            snippetBottom: () => "",
+        };
+        Object.defineProperty(localObj, "snippetTop", {
+            get: () => "<!-- start Bablic Head -->" + this.altTags(fullUrl, locale) + (this.meta.original == locale ? this.snippetAsync : this.snippet) + "<!-- start Bablic Head -->",
+        });
         extendResponseLocals(res, {
-            bablic: {
-                locale,
-                snippet: _snippet,
-                snippetBottom: "",
-                snippetTop: "<!-- start Bablic Head -->" + this.altTags(fullUrl, locale) + _snippet + "<!-- start Bablic Head -->",
-            },
+            bablic: localObj,
         });
 
         if (!this.seoMiddleware) {

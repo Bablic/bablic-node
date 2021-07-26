@@ -136,8 +136,8 @@ export function getLink(locale: string, parsed: UrlParser.Url, meta: SiteMeta, o
     let protocol = parsed.protocol || '';
     let hostname = parsed.hostname;
     let pathname = parsed.pathname || '/';
-    let search = parsed.search || '';
-    let hash = parsed.hash || '';
+    parsed.search = parsed.search || '';
+    parsed.hash = parsed.hash || '';
 
     let returnFull = options.returnFull && !!hostname;
     let localeDetection = meta.localeDetection;
@@ -158,21 +158,21 @@ export function getLink(locale: string, parsed: UrlParser.Url, meta: SiteMeta, o
         case 'custom':
             let customUrl = meta.customUrls[locale];
             let confDomain = customUrl.indexOf('/') > -1 ? customUrl.substr(0,customUrl.indexOf('/')) : customUrl;
-            return protocol + '//' + confDomain + pathname + search + hash;
+            return protocol + '//' + confDomain + pathname + parsed.search + parsed.hash;
 
         case 'querystring':
-            if (/[?&]locale=([^&]+)/.test(search))
-                search = search.replace(/([?&]locale=)([^&]+)/, '$1' + locale);
+            if (/[?&]locale=([^&]+)/.test(parsed.search))
+                parsed.search = parsed.search.replace(/([?&]locale=)([^&]+)/, '$1' + locale);
             else {
-                if (search)
-                    search = search + '&locale=' + locale;
+                if (parsed.search)
+                    parsed.search = parsed.search + '&locale=' + locale;
                 else
-                    search = '?locale=' + locale;
+                    parsed.search = '?locale=' + locale;
             }
             if(returnFull)
-                return protocol + '//' + hostname + pathname + search + hash;
+                return protocol + '//' + hostname + pathname + parsed.search + parsed.hash;
 
-            return pathname + search + hash;
+            return pathname + parsed.search + parsed.hash;
 
         case 'subdir':
             if(options.subDirBase)
@@ -191,11 +191,11 @@ export function getLink(locale: string, parsed: UrlParser.Url, meta: SiteMeta, o
             if(options.subDirBase && (!options.subDirOptional || locale != original))
                 prefix = options.subDirBase + prefix;
             if(returnFull)
-                return protocol + '//' + hostname + prefix + pathname + search + hash;
-            return prefix + pathname + search  + hash;
+                return protocol + '//' + hostname + prefix + pathname + parsed.search + parsed.hash;
+            return prefix + pathname + parsed.search + parsed.hash;
         case 'hash':
             if(returnFull)
-                return protocol + '//' + hostname + pathname + search + '#locale=' + locale;
+                return protocol + '//' + hostname + pathname + parsed.search + '#locale=' + locale;
             return '#locale_' + locale;
     }
     return `javascript:bablic.setLanguage("${locale}");`;
