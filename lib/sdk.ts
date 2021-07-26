@@ -280,25 +280,22 @@ export class BablicSDK {
         this.getSiteMeta(() => debug("site snippet refreshed"));
         res.end("OK");
     }
-    public getLink(locale: string, url: string): string {
+    public getLink(locale: string, url: string, fromLocale?: string): string {
         let parsed = url_parser.parse(url);
-        let handler = this.meta.rewriteUrlHandler;
-        if (handler && typeof(handler) == "string")
-            handler = this.meta.rewriteUrlHandler = eval(handler);
         return getLink(locale, parsed, this.meta, {
             subDir: this.options.subDir,
             subDirBase: this.options.subDirBase,
             subDirOptional: this.options.subDirOptional,
             folders: this.options.folders,
             returnFull: true,
-        }, handler);
+        }, fromLocale) || url;
     }
     public altTags(url: string, locale: string) {
         let locales = this.meta.localeKeys || [];
         let tags = _(locales)
             .concat([this.meta.original])
             .without(locale)
-            .map((l: string) => `<link rel="alternate" href="${this.getLink(l, url)}" hreflang="${l == this.meta.original ? "x-default" : l}">`)
+            .map((l: string) => `<link rel="alternate" href="${this.getLink(l, url, this.meta.original)}" hreflang="${l == this.meta.original ? "x-default" : l}">`)
             .valueOf() as string[];
         return tags.join("");
     }
@@ -400,14 +397,28 @@ export class BablicSDK {
             if (original) {
                 req.url = original;
                 req.originalUrl = this.generateOriginalPath(req.originalUrl, locale) || req.originalUrl;
-            } else {
+            } else if (req.method == "GET"){
                 // check to see if there is a translated URL, if so, it should be redirected to it
                 let translated = this.generateTranslatedPath(req.originalUrl, locale);
                 if (translated) {
                     res.writeHead(301, {location: translated});
                     return res.end();
                 }
-
+            }
+        }
+        if (this.meta.rewriteUrlHandler) {
+            let original = this.getLink(this.meta.original, req.url, locale);
+            // build original URL, so server will return proper content
+            if (original && original !== req.url) {
+                req.url = original;
+                req.originalUrl = this.getLink(this.meta.original, req.originalUrl, locale) || req.originalUrl;
+            } else if (req.method == "GET"){
+                // check to see if there is a translated URL, if so, it should be redirected to it
+                let translated = this.getLink(locale, req.url, this.meta.original);
+                if (translated && translated !== req.url) {
+                    res.writeHead(301, {location: translated});
+                    return res.end();
+                }
             }
         }
 

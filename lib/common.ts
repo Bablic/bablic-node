@@ -131,7 +131,7 @@ export interface BablicLinkOptions {
     folders?:{[locale:string]:string}
 }
 
-export function getLink(locale: string, parsed: UrlParser.Url, meta: SiteMeta, options?: BablicLinkOptions, rewriteUrlHandler?: any) {
+export function getLink(locale: string, parsed: UrlParser.Url, meta: SiteMeta, options?: BablicLinkOptions, fromLocale?: string) {
     options = options || {};
     let protocol = parsed.protocol || '';
     let hostname = parsed.hostname;
@@ -142,8 +142,12 @@ export function getLink(locale: string, parsed: UrlParser.Url, meta: SiteMeta, o
     let returnFull = options.returnFull && !!hostname;
     let localeDetection = meta.localeDetection;
     let original = meta.original;
-    if (rewriteUrlHandler) {
-        return rewriteUrlHandler(parsed, locale);
+    let handler = meta.rewriteUrlHandler;
+    if (handler) {
+        if (typeof(handler) == "string") {
+            handler = meta.rewriteUrlHandler = eval(handler);
+        }
+        return handler(parsed, locale, fromLocale);
     }
     if(options.subDir)
         localeDetection = 'subdir';

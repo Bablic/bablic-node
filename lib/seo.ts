@@ -382,7 +382,7 @@ export class SeoMiddleware{
                         html = original_html.replace(detect_url, url => {
                             if (ignore_not_html_or_xml.test(url))
                                 return url;
-                            if (_.every(originalDomains, (domain) => !url.includes(domain))) {
+                            if (!meta.rewriteUrlHandler || _.every(originalDomains, (domain) => !url.includes(domain))) {
                                 return url;
                             }
 
@@ -392,7 +392,7 @@ export class SeoMiddleware{
                                 let keywords = keywordsByLocale[req.bablic.locale];
                                 parsed.pathname = parsed.pathname.split('/').map(part => keywords[part] || part).join('/');
                             }
-                            return getLink(req.bablic.locale, parsed, meta, self.subDirOptions);
+                            return getLink(req.bablic.locale, parsed, meta, self.subDirOptions, meta.original) || url;
                         });
                         if (res.getHeader('Transfer-Encoding') !== 'chunked') {
                             res.setHeader('Content-Length', Buffer.byteLength(html));
