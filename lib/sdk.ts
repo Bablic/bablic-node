@@ -183,6 +183,11 @@ export class BablicSDK {
     }
     public saveSiteMeta(data: SiteData) {
         let {snippet, meta, lastModified} = data;
+        if (this.options.subDir) {
+            let base = this.options.subDirBase ? `bablic.subDirBase="${this.options.subDirBase}";` : '';
+            let opt = this.options.subDirOptional ? `bablic.subDirOptional=${!!this.options.subDirOptional};` : '';
+            snippet = `<script>var bablic=bablic||{};bablic.localeURL="subdir";${base}${opt}</script>`;
+        }
         this.snippet = snippet;
         this.snippetAsync = (snippet || "").replace("<script", "<script async");
         this.meta = meta;
@@ -235,8 +240,8 @@ export class BablicSDK {
     private getSiteMetaInner(cbk?: (e?: Error) => void, retry: number = 0) {
         this.getSiteMeta((e) => {
             if (!e) return cbk(e);
-            if (retry >= 5) return cbk(e);
-            setTimeout(() => this.getSiteMetaInner(cbk, retry + 1), 1000);
+            if (retry >= 10) return cbk(e);
+            setTimeout(() => this.getSiteMetaInner(cbk, retry + 1), 5000);
         });
     }
     public loadSiteMeta(cbk: (e?: Error) => void) {
@@ -381,16 +386,10 @@ export class BablicSDK {
             proxied: false,
         };
 
-        let _snippet = this.snippet;
-
-        if (this.meta.original == locale) {
-            _snippet = _snippet.replace("<script", "<script async");
-        }
 
         if (this.options.subDir && this.LOCALE_REGEX) {
             req.url = req.url.replace(this.LOCALE_REGEX, "");
             req.originalUrl = req.originalUrl.replace(this.LOCALE_REGEX, "");
-            _snippet = `<script>var bablic=bablic||{};bablic.localeURL="subdir";bablic.subDirBase="${this.options.subDirBase}";bablic.subDirOptional=${!!this.options.subDirOptional};</script>` + _snippet;
         }
 
         if (this.reverseKeywordByLocale && this.reverseKeywordByLocale[locale]) {
