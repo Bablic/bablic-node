@@ -183,13 +183,14 @@ export class BablicSDK {
     }
     public saveSiteMeta(data: SiteData) {
         let {snippet, meta, lastModified} = data;
+        let prefix = "";
         if (this.options.subDir) {
             let base = this.options.subDirBase ? `bablic.subDirBase="${this.options.subDirBase}";` : '';
             let opt = this.options.subDirOptional ? `bablic.subDirOptional=${!!this.options.subDirOptional};` : '';
-            snippet = `<script>var bablic=bablic||{};bablic.localeURL="subdir";${base}${opt}</script>`;
+            prefix = `<script>var bablic=bablic||{};bablic.localeURL="subdir";${base}${opt}</script>`;
         }
-        this.snippet = snippet;
-        this.snippetAsync = (snippet || "").replace("<script", "<script async");
+        this.snippet = prefix + snippet;
+        this.snippetAsync = prefix + (snippet || "").replace("<script", "<script async");
         this.meta = meta;
         this.lastModified = lastModified;
         this.processKeywords(data.keywords);
