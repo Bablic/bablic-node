@@ -5,3 +5,8 @@ node_modules/*
 *.js~
 *.coffee~
 .idea
+# ignore the .ts files
+*.ts
+
+# include the .d.ts files
+!*.d.ts

@@ -10,7 +10,7 @@ import * as url_parser from "url";
 import {SeoMiddleware, SeoOptions} from "./seo";
 import {
     ExtendedRequest, ExtendedResponse, getLocaleByURL, getLink, SiteMeta, KeywordMapper, LastModifiedByLocale,
-    Middleware
+    Middleware, createLocaleRegexChoices
 } from "./common";
 import {IncomingMessage, ServerResponse} from "http";
 
@@ -137,7 +137,7 @@ export class BablicSDK {
             this.processKeywords(this.options.keywords);
         }
         if (this.options.snippet) {
-            this.snippet = this.options.snippet;
+            this.snippet = this.snippetAsync = this.options.snippet;
         }
         this.lastModified = this.options.lastModified;
 
@@ -181,16 +181,20 @@ export class BablicSDK {
             }
         });
     }
-    public saveSiteMeta(data: SiteData) {
-        let {snippet, meta, lastModified} = data;
+    saveSnippet(data: SiteData, snippet: string) {
         let prefix = "";
         if (this.options.subDir) {
             let base = this.options.subDirBase ? `bablic.subDirBase="${this.options.subDirBase}";` : '';
             let opt = this.options.subDirOptional ? `bablic.subDirOptional=${!!this.options.subDirOptional};` : '';
-            prefix = `<script>var bablic=bablic||{};bablic.localeURL="subdir";${base}${opt}</script>`;
+            let folders = this.options.folders ? (`bablic.folders=${JSON.stringify(this.options.folders)};`) : '';
+            prefix = `<script>var bablic=bablic||{};bablic.localeURL="subdir";${base}${opt}${folders}</script>`;
         }
         this.snippet = prefix + snippet;
         this.snippetAsync = prefix + (snippet || "").replace("<script", "<script async");
+    }
+    public saveSiteMeta(data: SiteData) {
+        let {snippet, meta, lastModified} = data;
+        this.saveSnippet(data, snippet);
         this.meta = meta;
         this.lastModified = lastModified;
         this.processKeywords(data.keywords);
@@ -261,7 +265,7 @@ export class BablicSDK {
                     return this.getSiteMetaInner(cbk);
                 }
                 this.meta = object.meta;
-                this.snippet = object.snippet;
+                this.saveSnippet(object, object.snippet);
                 this.lastModified = object.lastModified;
                 this.processKeywords(object.keywords);
                 cbk();
@@ -360,7 +364,8 @@ export class BablicSDK {
         }
         res.setHeader("x-bablic-id", this.options.siteId);
         if (!this.LOCALE_REGEX && this.options.subDir && this.meta && this.meta.localeKeys) {
-            this.LOCALE_REGEX = RegExp("^(?:" + escapeRegex(this.options.subDirBase) + ")?\\/(" + this.meta.localeKeys.join("|") + ")\\b");
+            this.LOCALE_REGEX = RegExp("^(?:" + escapeRegex(this.options.subDirBase) + ")?\\/(" +
+                createLocaleRegexChoices(this.meta.localeKeys, this.options.folders) + ")\\b");
         }
         if (!this.meta) {
             debug("not loaded yet", req.originalUrl);

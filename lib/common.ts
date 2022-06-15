@@ -27,6 +27,37 @@ export interface KeywordMapper {
     }
 }
 
+
+function escapeRegexNoWildcard(str) {
+    return (str+'').replace(/([.?+^$[\]\\/(){}|-])/g, "\\$1");
+}
+
+export function createLocaleRegexChoices(locales, folders) {
+    const folderNames = [];
+    const localeAdded = {};
+    if (folders) {
+        for (const folderKey in folders) {
+            folderNames.push(escapeRegexNoWildcard(folderKey));
+            localeAdded[folders[folderKey]] = 1;
+        }
+    }
+    if (locales) {
+        for (const locale of locales) {
+            if (!localeAdded[locale]) {
+                folderNames.push(locale);
+            }
+        }
+    }
+    if (!folderNames.length)
+        return null;
+    return folderNames.join('|');
+}
+
+function createLocaleRegex(locales, folders) {
+    const localeRegexChoices = createLocaleRegexChoices(locales, folders);
+    return localeRegexChoices ? RegExp('^(\\/(' + localeRegexChoices + '))(?:\\/|$)','i') : SUB_DIR;
+}
+
 function getLocaleFromFolder(folderLocale, locales) {
     var index = locales.indexOf(folderLocale);
     if (index > -1)
@@ -59,10 +90,12 @@ export function getLocaleByURL(parsedUrl, locale_detection, localeConfigs, cooki
                 return matches[1];
             return siteDefaultLocale;
         case "subdir":
+            var localeRegex = createLocaleRegex(locales, folders);
+
             var pathname = parsedUrl.pathname;
             if (subDirBase)
                 pathname = pathname.replace(subDirBase, '');
-            var match = SUB_DIR.exec(pathname);
+            var match = localeRegex.exec(pathname);
             if (match) {
                 if (folders && locales && folders[match[2]])
                     return getLocaleFromFolder(folders[match[2]], locales) || siteDefaultLocale;
@@ -177,7 +210,8 @@ export function getLink(locale: string, parsed: UrlParser.Url, meta: SiteMeta, o
         case 'subdir':
             if(options.subDirBase)
                 pathname = pathname.replace(options.subDirBase,'');
-            let match = SUB_DIR.exec(pathname);
+            const localeRegex = createLocaleRegex(meta.localeKeys, options.folders);
+            let match = localeRegex.exec(pathname);
             if (match) {
                 pathname = pathname.substr(match[1].length);
                 if (pathname.length == 0)
