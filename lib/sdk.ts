@@ -175,10 +175,11 @@ export class BablicSDK {
                 }
                 debug("data:", data);
                 this.saveSiteMeta(data);
-                cbk();
             } catch (e) {
                 debug(e);
+                return cbk(e);
             }
+            cbk();
         });
     }
     saveSnippet(data: SiteData, snippet: string) {
@@ -268,12 +269,11 @@ export class BablicSDK {
                 this.saveSnippet(object, object.snippet);
                 this.lastModified = object.lastModified;
                 this.processKeywords(object.keywords);
-                cbk();
             } catch (e) {
                 debug(e);
                 return this.getSiteMetaInner(cbk);
             }
-
+            cbk();
             debug("checking snippet time");
             fs.stat(this.snippetUrl(), (e, stats) => {
                 if (e) {
