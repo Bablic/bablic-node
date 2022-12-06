@@ -2,7 +2,7 @@
 
 import * as crypto from 'crypto';
 import * as fs from 'fs';
-import {emptyDir, ensureDir, rmdir, writeFile, unlink, pathExists} from "fs-extra";
+import {emptyDir, ensureDir, remove, writeFile, unlink, pathExists} from "fs-extra";
 import * as moment from 'moment';
 import * as request from 'request';
 import * as Debug from 'debug';
@@ -27,6 +27,7 @@ export interface SeoOptions {
     test?:boolean;
     altHost?: string;
     cacheDays?: number;
+    ignoreSeo?: (req: ExtendedRequest) => boolean;
 }
 
 export interface SeoSubDirOptions {
@@ -141,7 +142,7 @@ export class SeoMiddleware{
     async purgeCache(): Promise<void> {
         debug("purge cache", this.options.cacheDir);
         try {
-            await rmdir(this.options.cacheDir);
+            await remove(this.options.cacheDir);
             debug("purge done");
         } catch (e) {
             debug('purge error', e);
@@ -164,10 +165,12 @@ export class SeoMiddleware{
     }
     middleware(){
         return (meta:SiteMeta,lastModified:LastModifiedByLocale, keywordsByLocale: KeywordMapper, reverseKeywordByLocale: KeywordMapper, req: ExtendedRequest, res: ExtendedResponse, next: () => void) => {
-
             let replaceUrls = shouldReplaceUrls(req);
             if (!shouldHandle(req) && !replaceUrls) {
                 debug('ignored', req.url);
+                return next();
+            }
+            if (this.options.ignoreSeo && this.options.ignoreSeo(req)) {
                 return next();
             }
 

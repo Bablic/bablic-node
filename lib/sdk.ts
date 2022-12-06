@@ -91,6 +91,7 @@ export const BackwardCompSEOOptions = {
 export class BablicSDK {
     public meta: SiteMeta = null;
     public lastModified: LastModifiedByLocale = null;
+    public preSnippet = "";
     public snippet = "";
     public snippetAsync = "";
     private options: BablicOptions;
@@ -190,8 +191,9 @@ export class BablicSDK {
             let folders = this.options.folders ? (`bablic.folders=${JSON.stringify(this.options.folders)};`) : '';
             prefix = `<script>var bablic=bablic||{};bablic.localeURL="subdir";${base}${opt}${folders}</script>`;
         }
-        this.snippet = prefix + snippet;
-        this.snippetAsync = prefix + (snippet || "").replace("<script", "<script async");
+        this.preSnippet = prefix;
+        this.snippet = snippet;
+        this.snippetAsync = (snippet || "").replace("<script", "<script async");
     }
     public saveSiteMeta(data: SiteData) {
         let {snippet, meta, lastModified} = data;
@@ -384,7 +386,6 @@ export class BablicSDK {
             return next();
         }
 
-
         let locale = req.forceLocale || this.options.forceLocale || this.getLocale(req);
 
         req.bablic = {
@@ -437,11 +438,11 @@ export class BablicSDK {
 
         const localObj = {
             locale,
-            snippet: this.meta.original == locale ? this.snippetAsync : this.snippet,
-            snippetBottom: () => "",
+            snippet: this.preSnippet + (this.meta.original == locale ? this.snippetAsync : this.snippet),
+            snippetBottom: "",
         };
         Object.defineProperty(localObj, "snippetTop", {
-            get: () => "<!-- start Bablic Head -->" + this.altTags(fullUrl, locale) + (this.meta.original == locale ? this.snippetAsync : this.snippet) + "<!-- start Bablic Head -->",
+            get: () => "<!-- start Bablic Head -->" + this.altTags(fullUrl, locale) + this.preSnippet + (this.meta.original == locale ? this.snippetAsync : this.snippet) + "<!-- start Bablic Head -->",
         });
         extendResponseLocals(res, {
             bablic: localObj,
