@@ -77,7 +77,7 @@ export class SeoMiddleware{
                 json: {
                     html: html
                 },
-                timeout: 20000,
+                timeout: 40000,
                 encoding:null,
             }, (error:any, response:RequestResponse, body: any) => {
                 if (error)
