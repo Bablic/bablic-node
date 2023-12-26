@@ -2,7 +2,7 @@
 
 import * as crypto from 'crypto';
 import * as fs from 'fs';
-import {emptyDir, ensureDir, remove, writeFile, unlink, pathExists} from "fs-extra";
+import {ensureDir, remove, writeFile, unlink, pathExists} from "fs-extra";
 import * as moment from 'moment';
 import * as request from 'request';
 import * as Debug from 'debug';
@@ -12,10 +12,10 @@ const debug = Debug('bablic:seo');
 const zlib = require('zlib');
 
 import {
-    ExtendedRequest, ExtendedResponse, Middleware, getLink, KeywordMapper, SiteMeta, LastModifiedByLocale,
+    ExtendedRequest, ExtendedResponse, getLink, KeywordMapper, SiteMeta, LastModifiedByLocale,
     BablicLinkOptions
 } from "./common";
-import {OutgoingMessage, ServerResponse} from "http";
+import {OutgoingMessage} from "http";
 import {Stats} from "fs";
 import {RequestResponse} from "request";
 import _ = require("lodash");
@@ -37,7 +37,7 @@ export interface SeoSubDirOptions {
 }
 
 export class SeoMiddleware{
-    private subDirOptions: BablicLinkOptions;
+    private readonly subDirOptions: BablicLinkOptions;
     constructor(private siteId: string, private options: SeoOptions, subDirOptions: SeoSubDirOptions){
         this.subDirOptions = Object.assign({returnFull: true}, subDirOptions);
     }
@@ -54,49 +54,17 @@ export class SeoMiddleware{
             await writeFile(cachePath, translated);
         }
     }
-    getHtml(url: string, cacheKey: string, locale: string, html?: string): Promise<string> {
+    async getHtml(url: string, cacheKey: string, locale: string, html?: string): Promise<string> {
         if (!isRenderHealthy) {
             return Promise.reject(new Error("Render is not health"));
         }
         debug('getting from bablic', url, 'html:', !!html );
-        let ld = '';
-        if(this.subDirOptions.subDir) {
-            ld = '&ld=subdir';
-            if(this.subDirOptions.subDirBase)
-                ld += '&sdb=' + encodeURIComponent(this.subDirOptions.subDirBase);
-            if(this.subDirOptions.subDirOptional)
-                ld += '&sdo=true';
-        }
-        return new Promise<string>((resolve, reject) => {
-            request({
-                url: SEO_ROOT + "?site=" + this.siteId + "&el=" + locale  + "&url=" + (encodeURIComponent(url)) + ld,
-                headers:{
-                    "Accept-Encoding": "gzip,deflate"
-                },
-                method: 'POST',
-                json: {
-                    html: html
-                },
-                timeout: 40000,
-                encoding:null,
-            }, (error:any, response:RequestResponse, body: any) => {
-                if (error)
-                    return reject(error);
-
-                if (response.statusCode < 200 || response.statusCode >= 300)
-                    return reject(new Error("Status-" + response.statusCode));
-
-                if (body == null)
-                    return reject(new Error('empty response'));
-
-                debug('received translated html', response.statusCode);
-                resolve(body);
-
-                this.writeToCache(cacheKey, locale, body).catch((e) => {
-                    debug("error writing to cache", e);
-                });
-            });
+        const translatedHtml = await renderServer.render(this.siteId, url, locale, html,
+        this.subDirOptions);
+        this.writeToCache(cacheKey, locale, translatedHtml).catch((e) => {
+            debug("error writing to cache", e);
         });
+        return translatedHtml;
     }
     getFromCache(url: string, locale: string, skip: boolean, callback:(e?:Error, html?: Buffer | string, isValid?: boolean) => void) {
         if (!this.options.useCache || skip)
@@ -229,9 +197,9 @@ export class SeoMiddleware{
                 res.writeHead = (status, _headers) => {
                     res.statusCode = status;
                     if (_headers && typeof _headers === 'object') {
-                        let results = [];
+                        let results: any[] = [];
                         for (let key in _headers)
-                            results.push(res.setHeader(key, _headers[key]));
+                            results.push(res.setHeader(key, _headers[key]) as any);
                         return results;
                     }
                 };
@@ -333,7 +301,6 @@ export class SeoMiddleware{
                 justAnObject.end = function(chunk?: any, encoding?: any, cb?: any) {
                     if(typeof(encoding) == 'function'){
                         cb = <Function>encoding;
-                        encoding = void(0);
                     }
 
                     check_head();
@@ -416,7 +383,7 @@ export class SeoMiddleware{
                             return;
 
                         const isEncoded = self.isEncoded(data);
-                        // if browser doesnt support gzip encoding
+                        // if browser doesn't support gzip encoding
                         if (!acceptGZIP) {
                             // if the content is gzipped
                             if (isEncoded) {
@@ -456,11 +423,74 @@ const detect_url = /(\b(https?|ftp|file):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9
 
 let SEO_ROOT = 'http://seo.bablic.com/api/engine/seo';
 
-export function setRenderServer(url: string) {
+export interface RenderServer {
+    health(): Promise<void>;
+    render(site: string, url: string, locale: string, html: string, params?: BablicLinkOptions): Promise<string>;
+}
+
+let renderServer: RenderServer = {
+    health(): Promise<void> {
+        return new Promise<void>((resolve, reject) => {
+            request({
+                url: SEO_ROOT,
+                headers: {
+                    "Accept-Encoding": "gzip,deflate"
+                },
+                method: 'GET',
+                timeout: 10000,
+            }, (error: any) => {
+                if (error) {
+                    return reject(error);
+                }
+                resolve();
+            });
+        });
+    },
+    render(site: string, url: string, locale: string, html: string, subDirOptions?: BablicLinkOptions): Promise<string> {
+        let ld = '';
+        if(subDirOptions && subDirOptions.subDir) {
+            ld = '&ld=subdir';
+            if(subDirOptions.subDirBase)
+                ld += '&sdb=' + encodeURIComponent(subDirOptions.subDirBase);
+            if(subDirOptions.subDirOptional)
+                ld += '&sdo=true';
+        }
+        return new Promise<string>((resolve, reject) => {
+            request({
+                url: SEO_ROOT + "?site=" + site + "&el=" + locale  + "&url=" + (encodeURIComponent(url)) + ld,
+                headers:{
+                    "Accept-Encoding": "gzip,deflate"
+                },
+                method: 'POST',
+                json: {
+                    html: html
+                },
+                timeout: 40000,
+                encoding:null,
+            }, (error:any, response:RequestResponse, body: any) => {
+                if (error)
+                    return reject(error);
+
+                if (response.statusCode < 200 || response.statusCode >= 300)
+                    return reject(new Error("Status-" + response.statusCode));
+
+                if (body == null)
+                    return reject(new Error('empty response'));
+
+                debug('received translated html', response.statusCode);
+                resolve(body);
+            });
+        });
+    }
+}
+export function setRenderServer(url: string | RenderServer) {
     if (!url) {
         throw new Error("Must be a valid URL");
     }
-    SEO_ROOT = url;
+    if (typeof (url) === "string")
+        SEO_ROOT = url;
+    else
+        renderServer = url;
 }
 
 function hash(data){
@@ -497,25 +527,15 @@ function shouldReplaceUrls(req) {
 }
 
 
-function renderHealthCheck(): Promise<boolean> {
-    return new Promise<boolean>((resolve, reject) => {
-        debug('render health check');
-        request({
-            url: SEO_ROOT,
-            headers:{
-                "Accept-Encoding": "gzip,deflate"
-            },
-            method: 'GET',
-            timeout: 10000,
-        }, (error:any) => {
-            if (error) {
-                debug('render is not healthy', error);
-                return resolve(false);
-            }
-            debug('render is healthy');
-            resolve(true);
-        });
-    });
+async function renderHealthCheck(): Promise<boolean> {
+    debug('render health check');
+    try {
+        await renderServer.health();
+        return true;
+    } catch (e) {
+        debug('render is not healthy', e);
+        return false;
+    }
 }
 
 let isRenderHealthy = true;
