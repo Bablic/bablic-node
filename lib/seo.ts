@@ -18,7 +18,7 @@ import {
 import {OutgoingMessage} from "http";
 import {Stats} from "fs";
 import {RequestResponse} from "request";
-import _ = require("lodash");
+import * as _ from "lodash";
 
 export interface SeoOptions {
     useCache?:boolean;
